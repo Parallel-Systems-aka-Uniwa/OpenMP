@@ -17,6 +17,7 @@ int main(int argc, char *argv[])
     int chunk, flag;
     int loc_sum, loc_flag, loc_index;
     int m;
+    int min_val;
 
     omp_set_num_threads(T);
 
@@ -93,6 +94,42 @@ int main(int argc, char *argv[])
     }
 
     printArray(B);
+    
+    min_val = B[0][0];
+
+    // d. min_val = min(|Bij|)
+    // d1. με reduction
+    #pragma omp parallel default(shared) private(i, j)
+    {
+        #pragma omp for schedule(static, chunk) reduction(min : min_val)
+        for (i = 0; i < N; i++)
+            for (j = 0; j < N; j++)
+                if (B[i][j] < min_val)
+                    min_val = B[i][j];
+    }
+
+    printf("min = %d\n", min_val);
+
+    // d2. χωρίς reduction
+    // d2.1 αμοιβαίος αποκλεισμός
+    #pragma omp parallel shared(min_val) private(i, j)
+    {
+        #pragma omp for schedule(static, chunk)
+        for (i = 0; i < N; i++)
+            for (j = 0; j < N; j++)
+                if (B[i][j] < min_val)
+                {
+                    #pragma omp critical (inc_min_val)
+                    {
+                        min_val = B[i][j];
+                    }
+                }
+    }
+
+    printf("min = %d\n", min_val);
+
+    // d2.2 αλγόριθμος δυαδικού δένδρου
+
 
     return 0;
 }
@@ -101,12 +138,10 @@ void printArray(int Array[N][N])
 {
     int i, j;
 
-    for (i = 0; i < N; i++) 
+    for (i = 0; i < N; i++)
     {
         for (j = 0; j < N; j++)
-        {
             printf("%d ", Array[i][j]);
-        }
         printf("\n");
     }
 }
