@@ -18,6 +18,8 @@ int main(int argc, char *argv[])
     int loc_sum, loc_flag, loc_index;
     int m;
     int min_val;
+    double all_time_start, all_time_end;
+    double loc_time_start, loc_time_end;
 
     omp_set_num_threads(T);
 
@@ -37,7 +39,11 @@ int main(int argc, char *argv[])
 
     printArray(A);
 
-    // a. Να ελέγχει (παράλληλα) αν ο πίνακας Α είναι αυστηρά διαγώνια δεσπόζων    
+    all_time_start = omp_get_wtime();
+    
+    // a. Να ελέγχει (παράλληλα) αν ο πίνακας Α είναι αυστηρά διαγώνια δεσπόζων 
+    loc_time_start = omp_get_wtime();   
+    
     #pragma omp parallel shared(flag) private(i, j, loc_sum, loc_flag, loc_index)
     {
         loc_flag = 1;
@@ -61,16 +67,23 @@ int main(int argc, char *argv[])
         flag *= loc_flag;            
     }
     
+    loc_time_end = omp_get_wtime();
+    // --------- Parallel Finish ---------
+
     // σσ1. δεν ισχύει το a.
     if (!flag)
     {
-        printf("The array A is not strictly diagonal dominant.\n");
+        printf("Not Hooray :(\n");
+        printf("Task a. finished in %lf \n", loc_time_end - loc_time_start);
         exit(0);
     }
 
-    printf("Hooray!\n");
+    printf("Hooray :D\n");
+    printf("Task a. finished in %lf \n", loc_time_end - loc_time_start);
 
     // b. m = max(|Aii|), i = 0...N-1
+    loc_time_start = omp_get_wtime();
+
     #pragma omp parallel default(shared) private(i)
     {
         #pragma omp for schedule(static, chunk) reduction(max : m)
@@ -79,9 +92,15 @@ int main(int argc, char *argv[])
                 m = A[i][i];
     }
 
+    loc_time_end = omp_get_wtime();
+    // --------- Parallel Finish ---------
+
     printf("max = %d\n", m);
+    printf("Task b. finished in %lf \n", loc_time_end - loc_time_start);
 
     // c. Bij = m - |Aij| για i <> j και Bij = m για i = j
+    loc_time_start = omp_get_wtime();
+
     #pragma omp parallel default(shared) private(i, j)
     {
         #pragma omp for schedule(static, chunk) collapse(1)
@@ -93,12 +112,18 @@ int main(int argc, char *argv[])
                     B[i][j] = m - A[i][j];
     }
 
+    loc_time_end = omp_get_wtime();
+    // --------- Parallel Finish ---------
+
     printArray(B);
+    printf("Task c. finished in %lf \n", loc_time_end - loc_time_start);
     
     min_val = B[0][0];
 
     // d. min_val = min(|Bij|)
     // d1. με reduction
+    loc_time_start = omp_get_wtime();
+
     #pragma omp parallel default(shared) private(i, j)
     {
         #pragma omp for schedule(static, chunk) reduction(min : min_val)
@@ -108,10 +133,16 @@ int main(int argc, char *argv[])
                     min_val = B[i][j];
     }
 
-    printf("min = %d\n", min_val);
+    loc_time_end = omp_get_wtime();
+    // --------- Parallel Finish ---------
+
+    printf("With reduction --> min = %d\n", min_val);
+    printf("Task d1. finished in %lf \n", loc_time_end - loc_time_start);
 
     // d2. χωρίς reduction
     // d2.1 αμοιβαίος αποκλεισμός
+    loc_time_start = omp_get_wtime();
+
     #pragma omp parallel shared(min_val) private(i, j)
     {
         #pragma omp for schedule(static, chunk)
@@ -126,10 +157,15 @@ int main(int argc, char *argv[])
                 }
     }
 
-    printf("min = %d\n", min_val);
+    loc_time_end = omp_get_wtime();
+    // --------- Parallel Finish ---------
 
-    // d2.2 αλγόριθμος δυαδικού δένδρου
+    printf("With critical --> min = %d\n", min_val);
+    printf("Task d2.1 finished in %lf \n", loc_time_end - loc_time_start);
 
+    all_time_end = omp_get_wtime();
+
+    printf("Parallel program finished in %lf \n", all_time_end - all_time_start);
 
     return 0;
 }
