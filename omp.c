@@ -7,11 +7,12 @@
 // σσ2. Τον αριθμό των threads τον δίνει ο χρήστης
 #define T 4
 
-void printA(int A[N][N]);
+void printArray(int Array[N][N]);
 
 int main(int argc, char *argv[]) 
 {
     int A[N][N];
+    int B[N][N];
     int i, j;
     int chunk, flag;
     int loc_sum, loc_flag, loc_index;
@@ -33,7 +34,7 @@ int main(int argc, char *argv[])
 
     m = A[0][0];
 
-    printA(A);
+    printArray(A);
 
     // a. Να ελέγχει (παράλληλα) αν ο πίνακας Α είναι αυστηρά διαγώνια δεσπόζων    
     #pragma omp parallel shared(flag) private(i, j, loc_sum, loc_flag, loc_index)
@@ -80,11 +81,23 @@ int main(int argc, char *argv[])
     printf("max = %d\n", m);
 
     // c. Bij = m - |Aij| για i <> j και Bij = m για i = j
+    #pragma omp parallel default(shared) private(i, j)
+    {
+        #pragma omp for schedule(static, chunk) collapse(1)
+        for (i = 0; i < N; i++)
+            for (j = 0; j < N; j++)
+                if (i == j)
+                    B[i][j] = m;
+                else
+                    B[i][j] = m - A[i][j];
+    }
+
+    printArray(B);
 
     return 0;
 }
 
-void printA(int A[N][N])
+void printArray(int Array[N][N])
 {
     int i, j;
 
@@ -92,7 +105,7 @@ void printA(int A[N][N])
     {
         for (j = 0; j < N; j++)
         {
-            printf("%d ", A[i][j]);
+            printf("%d ", Array[i][j]);
         }
         printf("\n");
     }
