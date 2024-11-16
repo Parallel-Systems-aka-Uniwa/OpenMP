@@ -15,6 +15,7 @@ int main(int argc, char *argv[])
     int i, j;
     int chunk, flag;
     int loc_sum, loc_flag, loc_index;
+    int m;
 
     omp_set_num_threads(T);
 
@@ -30,10 +31,12 @@ int main(int argc, char *argv[])
         }
     }
 
+    m = A[0][0];
+
     printA(A);
 
     // a. Να ελέγχει (παράλληλα) αν ο πίνακας Α είναι αυστηρά διαγώνια δεσπόζων    
-    #pragma omp parallel shared(flag) private(i, j, loc_sum, loc_flag)
+    #pragma omp parallel shared(flag) private(i, j, loc_sum, loc_flag, loc_index)
     {
         loc_flag = 1;
 
@@ -63,8 +66,20 @@ int main(int argc, char *argv[])
         exit(0);
     }
 
+    printf("Hooray!\n");
+
     // b. m = max(|Aii|), i = 0...N-1
-    
+    #pragma omp parallel default(shared) private(i)
+    {
+        #pragma omp for schedule(static, chunk) reduction(max : m)
+        for (i = 0; i < N; i++)
+            if (A[i][i] > m)
+                m = A[i][i];
+    }
+
+    printf("max = %d\n", m);
+
+    // c. Bij = m - |Aij| για i <> j και Bij = m για i = j
 
     return 0;
 }
