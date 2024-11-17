@@ -8,6 +8,7 @@
 #define T 4
 
 void printArray(int Array[N][N]);
+int findMinWithBinaryTree(int Array[N][N]);
 
 int main(int argc, char *argv[]) 
 {
@@ -139,6 +140,8 @@ int main(int argc, char *argv[])
     printf("With reduction --> min = %d\n", min_val);
     printf("Task d1. finished in %lf \n", loc_time_end - loc_time_start);
 
+    min_val = B[0][0];
+
     // d2. χωρίς reduction
     // d2.1 αμοιβαίος αποκλεισμός
     loc_time_start = omp_get_wtime();
@@ -163,8 +166,24 @@ int main(int argc, char *argv[])
     printf("With critical --> min = %d\n", min_val);
     printf("Task d2.1 finished in %lf \n", loc_time_end - loc_time_start);
 
-    all_time_end = omp_get_wtime();
+    min_val = B[0][0];
 
+    // d2.2 αλγόριθμος δυαδικού δένδρου
+    loc_time_start = omp_get_wtime();
+
+    #pragma omp parallel 
+    {
+        #pragma omp single
+        min_val = findMinWithBinaryTree(B);
+    }
+
+    loc_time_end = omp_get_wtime();
+    // --------- Parallel Finish ---------
+
+    printf("With binary tree algo --> min = %d\n", min_val);
+    printf("Task d2.2 finished in %lf \n", loc_time_end - loc_time_start);
+
+    all_time_end = omp_get_wtime();
     printf("Parallel program finished in %lf \n", all_time_end - all_time_start);
 
     return 0;
@@ -180,4 +199,9 @@ void printArray(int Array[N][N])
             printf("%d ", Array[i][j]);
         printf("\n");
     }
+}
+
+int findMinWithBinaryTree(int Array[N][N])
+{
+    
 }
