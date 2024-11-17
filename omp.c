@@ -8,14 +8,13 @@
 #define T 4
 
 void printArray(int Array[N][N]);
-int findMinWithBinaryTree(int Array[N][N]);
 
 int main(int argc, char *argv[]) 
 {
     int A[N][N];
     int B[N][N];
     int i, j;
-    int chunk, flag;
+    int chunk, flag, tid;
     int loc_sum, loc_flag, loc_index;
     int m;
     int min_val;
@@ -171,12 +170,7 @@ int main(int argc, char *argv[])
     // d2.2 αλγόριθμος δυαδικού δένδρου
     loc_time_start = omp_get_wtime();
 
-    #pragma omp parallel 
-    {
-        #pragma omp single
-        min_val = findMinWithBinaryTree(B);
-    }
-
+    
     loc_time_end = omp_get_wtime();
     // --------- Parallel Finish ---------
 
@@ -201,7 +195,3 @@ void printArray(int Array[N][N])
     }
 }
 
-int findMinWithBinaryTree(int Array[N][N])
-{
-    
-}
