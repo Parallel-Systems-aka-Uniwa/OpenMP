@@ -13,9 +13,11 @@ int main(int argc, char *argv[])
 {
     int A[N][N];
     int B[N][N];
+    int M[T];
     int i, j;
     int chunk, flag, tid;
-    int loc_sum, loc_flag, loc_index;
+    int loc_sum, loc_flag, loc_index, loc_min;
+    int incr, temp0, temp1;
     int m;
     int min_val;
     double all_time_start, all_time_end;
@@ -166,15 +168,61 @@ int main(int argc, char *argv[])
     printf("Task d2.1 finished in %lf \n", loc_time_end - loc_time_start);
 
     min_val = B[0][0];
+    printf("\n\n\n--------------------\n\n\n");
 
     // d2.2 αλγόριθμος δυαδικού δένδρου
     loc_time_start = omp_get_wtime();
+    #pragma omp parallel default(shared) private(tid, i, j, incr, loc_min)
+    {
+        tid = omp_get_thread_num();
+        M[tid] = B[tid*chunk][tid*chunk];
+        
+        #pragma omp for schedule(static, chunk)
+        for (i = 0; i < N; i++)
+            for (j = 0; j < N; j++)
+                if (B[i][j] < M[tid])
+                    M[tid] = B[i][j];
+        
+        M[T+tid] = 1000000; // Initialize memory
+        incr = 1; // Initialize increment
+        while (incr < T)
+        {
+            // Print the values before the operations in the current loop iteration
+            printf("Before operation: tid=%d, incr=%d, M[%d]=%d, M[%d]=%d\n", 
+                tid, incr, tid, M[tid], tid+incr, M[tid+incr]);
 
+            temp0 = M[tid];
+            temp1 = M[tid + incr];
+
+            // Print the temporary values fetched from memory
+            printf("temp0=%d, temp1=%d\n", temp0, temp1);
+
+            loc_min = (temp0 <= temp1) ? temp0 : temp1;
+
+            // Print the calculated local minimum
+            printf("loc_min=%d\n", loc_min);
+
+            M[tid] = loc_min;
+
+            // Print the updated memory value
+            printf("After operation: M[%d]=%d\n", tid, M[tid]);
+
+            incr = 2 * incr;
+
+            // Print the new increment value
+            printf("Updated incr=%d\n", incr);
+            
+            printf("\n");
+        }
+
+    }
     
     loc_time_end = omp_get_wtime();
     // --------- Parallel Finish ---------
+    for(i = 0; i < T; i++)
+        printf("M[%d] = %d\n", i, M[i]);
 
-    printf("With binary tree algo --> min = %d\n", min_val);
+    printf("With binary tree algo --> min = %d\n", M[0]);
     printf("Task d2.2 finished in %lf \n", loc_time_end - loc_time_start);
 
     all_time_end = omp_get_wtime();
