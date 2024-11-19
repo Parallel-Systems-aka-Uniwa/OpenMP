@@ -2,10 +2,10 @@
 #include <stdlib.h>
 #include <omp.h>
 
-#define CZ 2
-#define N 8
+#define CZ 1
+#define N 10
 // σσ2. Τον αριθμό των threads τον δίνει ο χρήστης
-#define T 4
+#define T 5
 
 void printArray(int Array[N][N]);
 
@@ -14,6 +14,7 @@ int main(int argc, char *argv[])
     int A[N][N];
     int B[N][N];
     int M[T];
+    FILE *fp;
     int i, j;
     int chunk, flag, tid;
     int loc_sum, loc_flag, loc_index, loc_min;
