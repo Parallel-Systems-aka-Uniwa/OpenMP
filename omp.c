@@ -2,61 +2,129 @@
 #include <stdlib.h>
 #include <omp.h>
 
-#define CZ 1
+#define CZ 2
 #define N 10
 // σσ2. Τον αριθμό των threads τον δίνει ο χρήστης
 #define T 5
 
-void printArray(int Array[N][N]);
+int** allocate2DArray(int n, int *pStatus);
+void printArray(int **pArray, int n);
 
 int main(int argc, char *argv[]) 
 {
-    int A[N][N];
-    int B[N][N];
-    int M[T];
+    int **A;
+    int **B;
     FILE *fp;
+    int M[T];
     int i, j;
     int chunk, flag, tid;
-    int loc_sum, loc_flag, loc_index, loc_min;
     int incr, temp0, temp1;
     int m;
+    int n;
+    int status;
     int min_val;
+    int loc_sum, loc_flag, loc_index, loc_min;
     double all_time_start, all_time_end;
     double loc_time_start, loc_time_end;
 
     omp_set_num_threads(T);
 
     chunk = CZ;
+    n = N;
     flag = 1;
 
-    for (i = 0; i < N; i++) {
-        for (j = 0; j < N; j++) {
-            if (i == j) 
-                A[i][j] = N + i + 1;
-            else
-                A[i][j] = (i + j) % 3;
+    if (argc == 1) 
+    {
+        A = allocate2DArray(N, &status);
+        if (status == 1)
+            exit(1);
+
+        B = allocate2DArray(N, &status);
+        if (status == 1)
+            exit(1);
+
+        for (i = 0; i < N; i++) {
+            for (j = 0; j < N; j++) {
+                if (i == j) 
+                    A[i][j] = N + i + 1;
+                else
+                    A[i][j] = (i + j) % 3;
+            }
         }
     }
+    else if (argc == 2)
+    {
+        fp = fopen(argv[1], "r");
+        if (!fp)
+        {
+            printf("Error: Could not open %s\n", argv[1]);
+            exit(1);
+        }
+
+        if (fscanf(fp, "%d", &n) != 1)
+        {
+            printf("Error: Could not read the size of the matrix\n");
+            fclose(fp);
+            exit(1);
+        }
+
+        A = allocate2DArray(n, &status);
+        if (status == 1)
+        {
+            fclose(fp);
+            exit(1);
+        }
+
+        B = allocate2DArray(n, &status);
+        if (status == 1)
+        {
+            fclose(fp);
+            exit(1);
+        }
+
+        for (i = 0; i < n; i++)
+            for (j = 0; j < n; j++)
+                if (fscanf(fp, "%d", &A[i][j]) != 1)
+                {
+                    printf("Error: Could not read the 2D Array\n");
+                    fclose(fp);
+                    exit(1);
+                }
+        
+        fclose(fp);
+
+    } 
+    else
+    {
+        printf("Usage\n");
+        printf("./omp\n");
+        printf("./omp file.txt\n");
+        exit(1);
+    }
+    
 
     m = A[0][0];
+    printf("m = %d\n", m);
 
-    printArray(A);
+    printArray(A, n);
 
     all_time_start = omp_get_wtime();
     
     // a. Να ελέγχει (παράλληλα) αν ο πίνακας Α είναι αυστηρά διαγώνια δεσπόζων 
     loc_time_start = omp_get_wtime();   
     
+    printf("Parallel program started\n");
     #pragma omp parallel shared(flag) private(i, j, loc_sum, loc_flag, loc_index)
     {
+        printf("Thread %d started\n", omp_get_thread_num());
         loc_flag = 1;
 
         #pragma omp for schedule(static, chunk)
-        for (i = 0; i < N; i++)
+        for (i = 0; i < n; i++)
         {
             loc_sum = 0;
 
-            for (j = 0; j < N; j++)
+            for (j = 0; j < n; j++)
                 if (i != j)
                     loc_sum += abs(A[i][j]); 
                 else     
@@ -90,7 +158,7 @@ int main(int argc, char *argv[])
     #pragma omp parallel default(shared) private(i)
     {
         #pragma omp for schedule(static, chunk) reduction(max : m)
-        for (i = 0; i < N; i++)
+        for (i = 0; i < n; i++)
             if (A[i][i] > m)
                 m = A[i][i];
     }
@@ -107,8 +175,8 @@ int main(int argc, char *argv[])
     #pragma omp parallel default(shared) private(i, j)
     {
         #pragma omp for schedule(static, chunk) collapse(1)
-        for (i = 0; i < N; i++)
-            for (j = 0; j < N; j++)
+        for (i = 0; i < n; i++)
+            for (j = 0; j < n; j++)
                 if (i == j)
                     B[i][j] = m;
                 else
@@ -118,7 +186,7 @@ int main(int argc, char *argv[])
     loc_time_end = omp_get_wtime();
     // --------- Parallel Finish ---------
 
-    printArray(B);
+    printArray(B, n);
     printf("Task c. finished in %lf \n", loc_time_end - loc_time_start);
     
     min_val = B[0][0];
@@ -130,8 +198,8 @@ int main(int argc, char *argv[])
     #pragma omp parallel default(shared) private(i, j)
     {
         #pragma omp for schedule(static, chunk) reduction(min : min_val)
-        for (i = 0; i < N; i++)
-            for (j = 0; j < N; j++)
+        for (i = 0; i < n; i++)
+            for (j = 0; j < n; j++)
                 if (B[i][j] < min_val)
                     min_val = B[i][j];
     }
@@ -151,8 +219,8 @@ int main(int argc, char *argv[])
     #pragma omp parallel shared(min_val) private(i, j)
     {
         #pragma omp for schedule(static, chunk)
-        for (i = 0; i < N; i++)
-            for (j = 0; j < N; j++)
+        for (i = 0; i < n; i++)
+            for (j = 0; j < n; j++)
                 if (B[i][j] < min_val)
                 {
                     #pragma omp critical (inc_min_val)
@@ -171,6 +239,7 @@ int main(int argc, char *argv[])
     min_val = B[0][0];
     printf("\n\n\n--------------------\n\n\n");
 
+
     // d2.2 αλγόριθμος δυαδικού δένδρου
     loc_time_start = omp_get_wtime();
     #pragma omp parallel default(shared) private(tid, i, j, incr, loc_min)
@@ -179,11 +248,11 @@ int main(int argc, char *argv[])
         M[tid] = B[tid*chunk][tid*chunk];
         
         #pragma omp for schedule(static, chunk)
-        for (i = 0; i < N; i++)
-            for (j = 0; j < N; j++)
+        for (i = 0; i < n; i++)
+            for (j = 0; j < n; j++)
                 if (B[i][j] < M[tid])
                     M[tid] = B[i][j];
-        
+
         M[T+tid] = 1000000; // Initialize memory
         incr = 1; // Initialize increment
         while (incr < T)
@@ -229,17 +298,58 @@ int main(int argc, char *argv[])
     all_time_end = omp_get_wtime();
     printf("Parallel program finished in %lf \n", all_time_end - all_time_start);
 
+    for (i = 0; i < n; i++) 
+        free(A[i]); 
+    free(A);
+
+    for (i = 0; i < n; i++) 
+        free(B[i]); 
+    free(B);  
+
     return 0;
 }
 
-void printArray(int Array[N][N])
+int** allocate2DArray(int n, int *pStatus)
+{
+    int i;
+    int **pArray;
+
+    *pStatus = 0;
+    pArray = (int **)malloc(n * sizeof(int *));
+    if (!pArray)
+    {
+        printf("Error in allocating memory for the lines of 2D Array.\n");
+        *pStatus = 1;
+    }
+    
+    for (i = 0; i < n; i++)
+    {
+        pArray[i] = (int *)malloc(n * sizeof(int));
+        if (!pArray[i])
+        {
+            printf("Error in allocating memory for the columns of 2D Array.\n");
+            *pStatus = 1;
+        }
+    }
+
+    if (*pStatus == 1)
+    {
+        for (i = 0; i < n; i++)
+            free(pArray[i]);
+        free(pArray);
+    }
+
+    return pArray;
+}
+
+void printArray(int **pArray, int n)
 {
     int i, j;
 
-    for (i = 0; i < N; i++)
+    for (i = 0; i < n; i++)
     {
-        for (j = 0; j < N; j++)
-            printf("%d ", Array[i][j]);
+        for (j = 0; j < n; j++)
+            printf("%d ", pArray[i][j]);
         printf("\n");
     }
 }
