@@ -15,8 +15,9 @@
 #define CZ 2
 #define N 10
 // σσ2. Τον αριθμό των threads τον δίνει ο χρήστης
-#define T 6
+#define T 5
 
+void create2DArray(int (*Array)[N]);
 void print2DArray(FILE *fp, int Array[N][N]);
 
 int main(int argc, char *argv[]) 
@@ -61,64 +62,27 @@ int main(int argc, char *argv[])
     }
 
 /*
- *  Αρχικοποίησεις 
+ *  Αρχικοποίησεις:
+  
  *  του αριθμού επαναλήψεων ανά thread, 
  *  του flag που ελέγχει αν ο Α είναι αυστηρά διαγώνια δεσπόζων,
  *  του πίνακα Α
  */
-    srand(time(NULL));
-
     chunk = CZ;
     flag = 1;
-    if (rand() % 2) {
-        // Strictly Diagonal Dominant
-        for (i = 0; i < N; i++) {
-            rowSum = 0;
-            for (j = 0; j < N; j++) {
-                if (i == j) {
-                    A[i][j] = rand() % 21 - 10; // Diagonal element (-10 to 10)
-                    A[i][j] = A[i][j] >= 0 ? A[i][j] + 20 : A[i][j] - 20; // Ensure larger magnitude
-                } else {
-                    A[i][j] = rand() % 21 - 10; // Off-diagonal element (-10 to 10)
-                    rowSum += abs(A[i][j]);
-                }
-            }
-            // Ensure diagonal element is greater than sum of other row elements
-            if (abs(A[i][i]) <= rowSum) {
-                A[i][i] = rowSum + rand() % 5 + 1; // Adjust to maintain strict diagonal dominance
-                A[i][i] *= (rand() % 2 == 0) ? 1 : -1; // Randomly keep it positive or negative
-            }
-        }
-    } else {
-        // NOT Strictly Diagonal Dominant
-        for (i = 0; i < N; i++) {
-            rowSum = 0;
-            for (j = 0; j < N; j++) {
-                if (i == j) {
-                    A[i][j] = rand() % 11 - 5; // Diagonal element (-5 to 5)
-                } else {
-                    A[i][j] = rand() % 21 - 10; // Off-diagonal element (-10 to 10)
-                    rowSum += abs(A[i][j]);
-                }
-            }
-            // Ensure diagonal element is smaller than or equal to sum of other row elements
-            if (abs(A[i][i]) > rowSum) {
-                A[i][i] = rowSum - rand() % 5 - 1; // Adjust to violate strict diagonal dominance
-                A[i][i] *= (rand() % 2 == 0) ? 1 : -1; // Randomly keep it positive or negative
-            }
-        }
-    }
 
+    create2DArray(A);
     print2DArray(fpA, A);
 
 /*
- *  Έναρξη μέτρησης χρόνου εκτέλεσης του παράλληλου προγράμματος
+ *  Έναρξη μέτρησης συνολικού χρόνου εκτέλεσης του παράλληλου προγράμματος για όλες τις υποεργασίες a, b, c, d1, d2.1, d2.2
  */
     all_time_start = omp_get_wtime();
     
 /*
  *  a. Να ελέγχει (παράλληλα) αν ο πίνακας Α είναι αυστηρά διαγώνια δεσπόζων
- */  
+ */
+    // --------- Έναρξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία a ---------  
     loc_time_start = omp_get_wtime();   
     
     #pragma omp parallel shared(flag) private(i, j, loc_sum, loc_flag, loc_index)
@@ -145,18 +109,26 @@ int main(int argc, char *argv[])
     }
     
     loc_time_end = omp_get_wtime();
-    // --------- Parallel Finish ---------
+    // --------- Λήξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία a. ---------
 
     // σσ1. δεν ισχύει το a.
     if (!flag)
     {
-        printf("Not Hooray :(\n");
-        printf("Task a. finished in %lf \n", loc_time_end - loc_time_start);
+        printf("The A is NOT strictly diagonial dominant array\n");
+        printf("----------------------------------------\n");
+        printf("Task a. finished in %lf sec.\n", loc_time_end - loc_time_start);
+        printf("----------------------------------------\n");
+        all_time_end = omp_get_wtime();
+        printf("Parallel program finished in %lf sec.\n", all_time_end - all_time_start);
+        
         exit(0);
     }
 
-    printf("Hooray :D\n");
-    printf("Task a. finished in %lf \n", loc_time_end - loc_time_start);
+    printf("The A is strictly diagonial dominant array\n");
+    printf("The array is printed in file %s\n", argv[1]);
+    printf("----------------------------------------\n");
+    printf("Task a. finished in %lf sec.\n", loc_time_end - loc_time_start);
+    printf("----------------------------------------\n");
 
     // b. m = max(|Aii|), i = 0...N-1
     m = A[0][0];
@@ -175,7 +147,9 @@ int main(int argc, char *argv[])
     // --------- Parallel Finish ---------
 
     printf("max = %d\n", m);
-    printf("Task b. finished in %lf \n", loc_time_end - loc_time_start);
+    printf("----------------------------------------\n");
+    printf("Task b. finished in %lf sec.\n", loc_time_end - loc_time_start);
+    printf("----------------------------------------\n");
 
     // c. Bij = m - |Aij| για i <> j και Bij = m για i = j
     loc_time_start = omp_get_wtime();
@@ -195,7 +169,10 @@ int main(int argc, char *argv[])
     // --------- Parallel Finish ---------
 
     print2DArray(fpB, B);
-    printf("Task c. finished in %lf \n", loc_time_end - loc_time_start);
+    printf("The array is printed in file %s\n", argv[2]);
+    printf("----------------------------------------\n");
+    printf("Task c. finished in %lf sec.\n", loc_time_end - loc_time_start);
+    printf("----------------------------------------\n");
     
     min_val = B[0][0];
 
@@ -216,7 +193,9 @@ int main(int argc, char *argv[])
     // --------- Parallel Finish ---------
 
     printf("With reduction --> min = %d\n", min_val);
-    printf("Task d1. finished in %lf \n", loc_time_end - loc_time_start);
+    printf("----------------------------------------\n");
+    printf("Task d1. finished in %lf sec.\n", loc_time_end - loc_time_start);
+    printf("----------------------------------------\n");
 
     min_val = B[0][0];
 
@@ -242,7 +221,9 @@ int main(int argc, char *argv[])
     // --------- Parallel Finish ---------
 
     printf("With critical --> min = %d\n", min_val);
-    printf("Task d2.1 finished in %lf \n", loc_time_end - loc_time_start);
+    printf("----------------------------------------\n");
+    printf("Task d2.1 finished in %lf sec.\n", loc_time_end - loc_time_start);
+    printf("----------------------------------------\n");
 
     min_val = B[0][0];
     printf("\n\n\n--------------------\n\n\n");
@@ -300,10 +281,12 @@ int main(int argc, char *argv[])
         printf("M[%d] = %d\n", i, M[i]);
 
     printf("With binary tree algo --> min = %d\n", M[0]);
-    printf("Task d2.2 finished in %lf \n", loc_time_end - loc_time_start);
-
+    printf("----------------------------------------\n");
+    printf("Task d2.2 finished in %lf sec.\n", loc_time_end - loc_time_start);
+    printf("----------------------------------------\n");
+    
     all_time_end = omp_get_wtime();
-    printf("Parallel program finished in %lf \n", all_time_end - all_time_start);
+    printf("Parallel program finished in %lf sec.\n", all_time_end - all_time_start);
 
     fclose(fpA);
     fclose(fpB);
@@ -311,6 +294,87 @@ int main(int argc, char *argv[])
     return 0;
 }
 
+/*
+ *  === Συνάρτηση create2DArray ===
+ *  Παράμετροι: Δείκτης σε πίνακα διάστασης N που περιέχει ακέραιες τιμές  
+ *  Επιστρέφει: Τίποτα
+ * 
+ *  Συνάρτηση που δημιουργεί έναν τυχαίο πίνακα Ν x Ν όπου ανάλογα με το αποτέλεσμα της rand() % 2
+ *  ο πίνακας είναι αυστηρά διαγώνια δεσπόζων ή μη αυστηρά διαγώνια δεσπόζων. 
+ *  Ο πίνακας επιστρέφεται στο σημείο κλήσης μέσω αναφοράς (by reference).
+ */
+void create2DArray(int (*Array)[N])
+{
+    int i, j;
+    int rowSum;
+
+    srand(time(NULL));
+    
+    if (rand() % 2) 
+    {
+        // Αυστηρά διαγώνια δεσπόζων
+        for (i = 0; i < N; i++) 
+        {
+            rowSum = 0;
+            for (j = 0; j < N; j++) 
+            {
+                if (i == j) 
+                {
+                    Array[i][j] = rand() % 21 - 10; // Στοιχεία κύριας διαγωνίου. Τιμές στο διάστημα [-10, 10]
+                    Array[i][j] = Array[i][j] >= 0 ? Array[i][j] + 20 : Array[i][j] - 20; // Τυχαία επιλογή προσήμου
+                } 
+                else 
+                {
+                    Array[i][j] = rand() % 21 - 10; // Στοιχεία που δεν ανήκουν στην κύρια διαγώνιο. Τιμές στο διάστημα [-10, 10]
+                    rowSum += abs(Array[i][j]);
+                }
+            }
+            // Επιβεβαιώνουμε την ιδιότητα του αυστηρά διαγώνια δεσπόζων πίνακα
+            // |Αii| > Σ|Aij|, j=0...N-1, j<>i
+            if (rowSum >= abs(Array[i][i])) 
+            {
+                Array[i][i] = rowSum + rand() % 5 + 1; // Προσαρμόζουμε τα στοιχεία της κύριας διαγωνίου ώστε να ισχύει η ιδιότητα
+                Array[i][i] *= (rand() % 2 == 0) ? 1 : -1; // Τυχαία επιλέγουμε πρόσημο στοιχείου της κύριας διαγωνίου
+            }
+        }
+    } 
+    else
+    {
+        // Μη αυστηρά διαγώνια δεσπόζων
+        for (i = 0; i < N; i++) 
+        {
+            rowSum = 0;
+            for (j = 0; j < N; j++)
+            {
+                if (i == j) 
+                {
+                    Array[i][j] = rand() % 11 - 5; // Στοιχεία κύριας διαγωνίου. Τιμές στο διάστημα [-5, 5]
+                } 
+                else 
+                {
+                    Array[i][j] = rand() % 21 - 10; // Στοιχεία που δεν ανήκουν στην κύρια διαγώνιο. Τιμές στο διάστημα [-5, 5]
+                    rowSum += abs(Array[i][j]);
+                }
+            }
+            // Επιβεβαιώνουμε την ΜΗ διατήρηση της ιδιότητας του αυστηρά διαγώνια δεσπόζων πίνακα
+            // |Αii| <= Σ|Aij|, j=0...N-1, j<>i
+            if (abs(Array[i][i]) > rowSum) 
+            {
+                Array[i][i] = rowSum - rand() % 5 - 1; // Προσαρμόζουμε τα στοιχεία της κύριας διαγωνίου ώστε να ΜΗΝ ισχύει η ιδιότητα
+                Array[i][i] *= (rand() % 2 == 0) ? 1 : -1; // Τυχαία επιλέγουμε πρόσημο στοιχείου της κύριας διαγωνίου
+            }
+        }
+    }
+}
+
+
+/*
+ *  === Συνάρτηση print2DArray ===
+ *  Παράμετροι: Δείκτης σε αρχείο εξόδου, Πίνακας διάστασης N x N που περιέχει ακέραιες τιμές
+ *  Επιστρέφει: Τίποτα
+ * 
+ *  Συνάρτηση που εκτυπώνει έναν πίνακα διάστασης N x N σε ένα αρχείο εξόδου
+ */
 void print2DArray(FILE *fp, int Array[N][N])
 {
     int i, j;
