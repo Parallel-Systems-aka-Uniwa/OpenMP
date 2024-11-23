@@ -12,10 +12,10 @@
 #include <time.h>
 #include <omp.h>
 
-#define CZ 6
-#define N 16
+#define CZ 7
+#define N 49
 // σσ2. Τον αριθμό των threads τον δίνει ο χρήστης
-#define T 4
+#define T 50
 
 void create2DArray(int (*Array)[N]);
 void print2DArray(FILE *fp, int Array[N][N]);
@@ -301,7 +301,7 @@ int main(int argc, char *argv[])
     #pragma omp parallel default(shared) private(tid, i, j, incr, loc_min)
     {
         tid = omp_get_thread_num();
-        M[tid] = B[tid*chunk][tid*chunk];
+        M[tid] = 1000000;
         
         #pragma omp for schedule(static, chunk) collapse(2)
         for (i = 0; i < N; i++)
@@ -309,7 +309,17 @@ int main(int argc, char *argv[])
                 if (B[i][j] < M[tid])
                     M[tid] = B[i][j];
         
+        #pragma omp master
+        {
+            for (i = 0; i < T; i++)
+                printf("M[%d] = %d\n", i, M[i]);
+        }
+        #pragma omp barrier
+        
         M[T+tid] = 1000000; // Initialize memory
+        printf("M[%d] = %d\n", T+tid, M[T+tid]);
+        #pragma omp barrier
+
         incr = 1; // Initialize increment
         while (incr < T)
         {
