@@ -12,10 +12,10 @@
 #include <time.h>
 #include <omp.h>
 
-#define CZ 2
-#define N 10
+#define CZ 6
+#define N 16
 // σσ2. Τον αριθμό των threads τον δίνει ο χρήστης
-#define T 5
+#define T 4
 
 void create2DArray(int (*Array)[N]);
 void print2DArray(FILE *fp, int Array[N][N]);
@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
     int B[N][N];                                // Bij = m – |Aij| για i<>j και Bij = m για i=j 
     int M[T];                                   // Ο πίνακας Μ που θα χρησιμοποιήσουμε για τον αλγόριθμο δυαδικού δένδρου
     FILE *fpA, *fpB;                            // Αρχεία εξόδου για την αποθήκευση των πινάκων Α και Β
-    int i, j;                                   // Δείκτες επανάληψης
+    int i, j, k;                                // Δείκτες επανάληψης
     int rowSum;                                 // Άθροισμα των στοιχείων μιας γραμμής του πίνακα Α
     int chunk, flag, tid;                       // Αριθμός επαναλήψεων ανά thread, Είναι ή δεν είναι ο Α αυστηρά διαγώνια δεσπόζων, Αναγνωριστικό thread
     int loc_sum, loc_flag, loc_index, loc_min;  // Τοπικές μεταβλητές για κάθε thread
@@ -75,20 +75,26 @@ int main(int argc, char *argv[])
     print2DArray(fpA, A);
 
 /*
- *  Έναρξη μέτρησης συνολικού χρόνου εκτέλεσης του παράλληλου προγράμματος για όλες τις υποεργασίες a, b, c, d1, d2.1, d2.2
+ *  Αρχικοποιήσεις μέτρησης συνολικού χρόνου εκτέλεσης του παράλληλου προγράμματος για όλες τις υποεργασίες a, b, c, d1, d2.1, d2.2
  */
-    all_time_start = omp_get_wtime();
-    
+    all_time_start = 0.0;
+    all_time_end = 0.0;
+
+// ========================================== [Έναρξη Παράλληλου Υπολογισμού] ========================================== 
+
 /*
- *  a. Να ελέγχει (παράλληλα) αν ο πίνακας Α είναι αυστηρά διαγώνια δεσπόζων
+ *  [Task a.] => Να ελέγχει (παράλληλα) αν ο πίνακας Α είναι αυστηρά διαγώνια δεσπόζων
  */
     // --------- Έναρξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία a ---------  
-    loc_time_start = omp_get_wtime();   
+    loc_time_start = omp_get_wtime();
+    all_time_start += loc_time_start;   
     
+    printf("=================================== [Task a.] ===================================\n");
     #pragma omp parallel shared(flag) private(i, j, loc_sum, loc_flag, loc_index)
     {
         loc_flag = 1;
 
+        // Παραλληλοποίηση του ελέγχου του πίνακα Α με for-schedule 
         #pragma omp for schedule(static, chunk)
         for (i = 0; i < N; i++)
         {
@@ -99,44 +105,63 @@ int main(int argc, char *argv[])
                     loc_sum += abs(A[i][j]); 
                 else     
                     loc_index = abs(A[i][j]); 
-                       
+
+            // Αν δεν ισχύει η ιδιότητα του αυστηρά διαγώνια δεσπόζων πίνακα
+            // τότε η ιδιωτική μεταβλητή loc_flag παίρνει την τιμή 0
+            // ώστε να πολλαπλασιαστεί με την κοινή μεταβλητή flag 
+            // και να κρίνει ότι ο πίνακας Α δεν είναι αυστηρά διαγώνια δεσπόζων           
             if (loc_index <= loc_sum)
                 loc_flag = 0;
         }
 
+        // Κρίσιμη περιοχή για την ενημέρωση της κοινής μεταβλητής flag
         #pragma omp atomic
         flag *= loc_flag;            
     }
     
     loc_time_end = omp_get_wtime();
-    // --------- Λήξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία a. ---------
+    all_time_end += loc_time_end;
+    // --------- Λήξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία a ---------
 
     // σσ1. δεν ισχύει το a.
     if (!flag)
     {
         printf("The A is NOT strictly diagonial dominant array\n");
-        printf("----------------------------------------\n");
+        printf("The array is printed in file %s\n", argv[1]);
+
+        printf("\n--------------------------------------------\n");
         printf("Task a. finished in %lf sec.\n", loc_time_end - loc_time_start);
-        printf("----------------------------------------\n");
-        all_time_end = omp_get_wtime();
+        printf("--------------------------------------------\n");
+        
+        // Εκτύπωση συνολικού χρόνου εκτέλεσης του παράλληλου προγράμματος
+        printf("\n--------------------------------------------\n");
         printf("Parallel program finished in %lf sec.\n", all_time_end - all_time_start);
+        printf("--------------------------------------------\n");
         
         exit(0);
     }
 
+    // Ο πίνακας Α είναι αυστηρά διαγώνια δεσπόζων
     printf("The A is strictly diagonial dominant array\n");
     printf("The array is printed in file %s\n", argv[1]);
-    printf("----------------------------------------\n");
+
+    printf("--------------------------------------------\n");
     printf("Task a. finished in %lf sec.\n", loc_time_end - loc_time_start);
-    printf("----------------------------------------\n");
+    printf("--------------------------------------------\n");
 
-    // b. m = max(|Aii|), i = 0...N-1
-    m = A[0][0];
+/*
+ *  [Task b.] => Να υπολογιστεί παράλληλα το m = max(|Aii|), i = 0...N-1
+ */
+    m = A[0][0]; // Αρχικοποίηση του m με το πρώτο στοιχείο της διαγωνίου του πίνακα Α
 
+    // --------- Έναρξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία b --------- 
     loc_time_start = omp_get_wtime();
+    all_time_start += loc_time_start;
 
+    printf("=================================== [Task b.] ===================================\n");
     #pragma omp parallel default(shared) private(i)
     {
+        // Υπολογισμός του m με reduction clause
         #pragma omp for schedule(static, chunk) reduction(max : m)
         for (i = 0; i < N; i++)
             if (A[i][i] > m)
@@ -144,19 +169,30 @@ int main(int argc, char *argv[])
     }
 
     loc_time_end = omp_get_wtime();
-    // --------- Parallel Finish ---------
+    all_time_end += loc_time_end;
+    // --------- Λήξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία b ---------
 
-    printf("max = %d\n", m);
-    printf("----------------------------------------\n");
+    printf("m = max(|Aii|) =>\n");
+    printf("m = %d\n", m);
+
+    printf("--------------------------------------------\n");
     printf("Task b. finished in %lf sec.\n", loc_time_end - loc_time_start);
-    printf("----------------------------------------\n");
+    printf("--------------------------------------------\n");
 
-    // c. Bij = m - |Aij| για i <> j και Bij = m για i = j
+
+/*
+ *  [Task c.] => Να φτιαχτεί παράλληλα ένας νέος πίνακας B με στοιχεία Bij = m - |Aij| για i <> j και Bij = m για i = j
+ */
+    // --------- Έναρξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία c --------- 
     loc_time_start = omp_get_wtime();
+    all_time_start += loc_time_start;
 
+    printf("=================================== [Task c.] ===================================\n");
     #pragma omp parallel default(shared) private(i, j)
     {
-        #pragma omp for schedule(static, chunk) collapse(1)
+        // Με την οδηγία collapse(2) η nested for-loop συγχωνεύεται ως μία και εκτελείται ισοδύναμα 
+        // for (i = 0; i < N * N; i++) { ... } και ο διαμοιρασμός στα threads γίνεται με την for schedule
+        #pragma omp for schedule(static, chunk) collapse(2)
         for (i = 0; i < N; i++)
             for (j = 0; j < N; j++)
                 if (i == j)
@@ -166,22 +202,30 @@ int main(int argc, char *argv[])
     }
 
     loc_time_end = omp_get_wtime();
-    // --------- Parallel Finish ---------
+    all_time_end += loc_time_end;
+    // --------- Λήξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία c ---------
 
     print2DArray(fpB, B);
     printf("The array is printed in file %s\n", argv[2]);
-    printf("----------------------------------------\n");
-    printf("Task c. finished in %lf sec.\n", loc_time_end - loc_time_start);
-    printf("----------------------------------------\n");
     
-    min_val = B[0][0];
+    printf("--------------------------------------------\n");
+    printf("Task c. finished in %lf sec.\n", loc_time_end - loc_time_start);
+    printf("--------------------------------------------\n");
 
-    // d. min_val = min(|Bij|)
-    // d1. με reduction
+/*
+ *  [Task d.] => Να υπολογιστεί παράλληλα το ελάχιστο στοιχείο του πίνακα Β min_val = min(|Bij|)
+ *      [Task d1.] = ... με χρήση reduction 
+ */   
+    min_val = B[0][0]; // Αρχικοποίηση του min_val με το πρώτο στοιχείο του πίνακα Β
+
+    // --------- Έναρξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία d1 --------- 
     loc_time_start = omp_get_wtime();
+    all_time_start += loc_time_start;
 
+    printf("=================================== [Task d1.] ===================================\n");
     #pragma omp parallel default(shared) private(i, j)
     {
+        // Υπολογισμός του min_val με reduction clause
         #pragma omp for schedule(static, chunk) reduction(min : min_val)
         for (i = 0; i < N; i++)
             for (j = 0; j < N; j++)
@@ -190,26 +234,38 @@ int main(int argc, char *argv[])
     }
 
     loc_time_end = omp_get_wtime();
-    // --------- Parallel Finish ---------
+    all_time_end += loc_time_end;
+    // --------- Λήξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία d1 ---------
 
-    printf("With reduction --> min = %d\n", min_val);
-    printf("----------------------------------------\n");
+    printf("With reduction\n");
+    printf("min_val = min(|Bij|) =>\n");
+    printf("min_val = %d\n", min_val);
+    
+    printf("--------------------------------------------\n");
     printf("Task d1. finished in %lf sec.\n", loc_time_end - loc_time_start);
-    printf("----------------------------------------\n");
+    printf("--------------------------------------------\n");
 
-    min_val = B[0][0];
+/*
+ *  [Task d.] => Να υπολογιστεί παράλληλα το ελάχιστο στοιχείο του πίνακα Β min_val = min(|Bij|)
+ *      [Task d2.] = ... χωρίς την χρήση reduction
+ *          [Task d2.1] = ... με χρήση μηχανισμού προστασίας της κρίσιμης περιοχής
+ */ 
+    min_val = B[0][0]; // Αρχικοποίηση του min_val με το πρώτο στοιχείο του πίνακα Β
 
-    // d2. χωρίς reduction
-    // d2.1 αμοιβαίος αποκλεισμός
+    // --------- Έναρξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία d2.1 --------- 
     loc_time_start = omp_get_wtime();
+    all_time_start += loc_time_start;
 
+    printf("=================================== [Task d2.1] ===================================\n");
     #pragma omp parallel shared(min_val) private(i, j)
     {
+
         #pragma omp for schedule(static, chunk)
         for (i = 0; i < N; i++)
             for (j = 0; j < N; j++)
                 if (B[i][j] < min_val)
                 {
+                    // Κρίσιμη περιοχή για την ενημέρωση της κοινής μεταβλητής min_val
                     #pragma omp critical (inc_min_val)
                     {
                         min_val = B[i][j];
@@ -218,24 +274,36 @@ int main(int argc, char *argv[])
     }
 
     loc_time_end = omp_get_wtime();
-    // --------- Parallel Finish ---------
+    all_time_end += loc_time_end;
+    // --------- Λήξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία d2.1 ---------
 
-    printf("With critical --> min = %d\n", min_val);
-    printf("----------------------------------------\n");
+    printf("With critical section\n");
+    printf("m = min(|Bij|) =>\n");
+    printf("m = %d\n", min_val);
+    
+    printf("--------------------------------------------\n");
     printf("Task d2.1 finished in %lf sec.\n", loc_time_end - loc_time_start);
-    printf("----------------------------------------\n");
+    printf("--------------------------------------------\n");
 
-    min_val = B[0][0];
+/*
+ *  [Task d.] => Να υπολογιστεί παράλληλα το ελάχιστο στοιχείο του πίνακα Β min_val = min(|Bij|)
+ *      [Task d2.] = ... χωρίς την χρήση reduction
+ *          [Task d2.2] = ... με χρήση αλγορίθμου δυαδικού δένδρου
+ */ 
+    min_val = B[0][0]; // Αρχικοποίηση του min_val με το πρώτο στοιχείο του πίνακα Β
     printf("\n\n\n--------------------\n\n\n");
 
-    // d2.2 αλγόριθμος δυαδικού δένδρου
+    // --------- Έναρξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία d2.2 ---------
     loc_time_start = omp_get_wtime();
+    all_time_start += loc_time_start;
+
+    printf("=================================== [Task d2.2] ===================================\n");
     #pragma omp parallel default(shared) private(tid, i, j, incr, loc_min)
     {
         tid = omp_get_thread_num();
         M[tid] = B[tid*chunk][tid*chunk];
         
-        #pragma omp for schedule(static, chunk)
+        #pragma omp for schedule(static, chunk) collapse(2)
         for (i = 0; i < N; i++)
             for (j = 0; j < N; j++)
                 if (B[i][j] < M[tid])
@@ -276,17 +344,26 @@ int main(int argc, char *argv[])
     }
     
     loc_time_end = omp_get_wtime();
-    // --------- Parallel Finish ---------
+    all_time_end += loc_time_end;
+    // --------- Λήξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία d2.2 ---------
+    
     for(i = 0; i < T; i++)
         printf("M[%d] = %d\n", i, M[i]);
 
-    printf("With binary tree algo --> min = %d\n", M[0]);
-    printf("----------------------------------------\n");
+    printf("Binary Tree Algorithm\n");
+    printf("m = min(|Bij|) =>\n");
+    printf("m = %d\n", M[0]);
+
+    printf("--------------------------------------------\n");
     printf("Task d2.2 finished in %lf sec.\n", loc_time_end - loc_time_start);
-    printf("----------------------------------------\n");
+    printf("--------------------------------------------\n");
     
-    all_time_end = omp_get_wtime();
+// ========================================== [Λήξη Παράλληλου Υπολογισμού] ==========================================
+    
+    // Εκτύπωση συνολικού χρόνου εκτέλεσης του παράλληλου προγράμματος
+    printf("\n--------------------------------------------\n");
     printf("Parallel program finished in %lf sec.\n", all_time_end - all_time_start);
+    printf("--------------------------------------------\n");
 
     fclose(fpA);
     fclose(fpB);

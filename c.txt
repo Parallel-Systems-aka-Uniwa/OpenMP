@@ -1,0 +1,100 @@
+=================================== [Task a.] ===================================
+The A is strictly diagonial dominant array
+The array is printed in file A.txt
+--------------------------------------------
+Task a. finished in 0.000352 sec.
+--------------------------------------------
+=================================== [Task b.] ===================================
+m = max(|Aii|) =>
+m = 104
+--------------------------------------------
+Task b. finished in 0.000003 sec.
+--------------------------------------------
+=================================== [Task c.] ===================================
+The array is printed in file B.txt
+--------------------------------------------
+Task c. finished in 0.000003 sec.
+--------------------------------------------
+=================================== [Task d1.] ===================================
+With reduction
+min_val = min(|Bij|) =>
+min_val = 94
+--------------------------------------------
+Task d1. finished in 0.000003 sec.
+--------------------------------------------
+=================================== [Task d2.1] ===================================
+With critical section
+m = min(|Bij|) =>
+m = 94
+--------------------------------------------
+Task d2.1 finished in 0.000010 sec.
+--------------------------------------------
+
+
+
+--------------------
+
+
+=================================== [Task d2.2] ===================================
+Before operation: tid=1, incr=1, M[1]=94, M[2]=94
+Before operation: tid=0, incr=1, M[0]=94, M[1]=94
+temp0=94, temp1=94
+loc_min=94
+After operation: M[1]=94
+Updated incr=2
+temp0=94, temp1=94
+loc_min=94
+After operation: M[0]=94
+Updated incr=2
+Before operation: tid=2, incr=1, M[2]=94, M[3]=-425411304
+
+Before operation: tid=0, incr=2, M[0]=94, M[2]=94
+temp0=94, temp1=-425411304
+loc_min=-425411304
+After operation: M[2]=-425411304
+Updated incr=2
+
+Before operation: tid=2, incr=2, M[2]=-425411304, M[4]=1000000
+Before operation: tid=3, incr=1, M[3]=-425411304, M[4]=-99
+temp0=94, temp1=-425411304
+
+loc_min=-425411304
+After operation: M[0]=-425411304
+temp0=-425411304, temp1=1000000
+loc_min=-425411304
+After operation: M[3]=-425411304
+Updated incr=2
+
+Before operation: tid=3, incr=2, M[3]=-425411304, M[5]=1000000
+temp0=-425411304, temp1=1000000
+loc_min=-425411304
+Before operation: tid=1, incr=2, M[1]=94, M[3]=-425411304
+After operation: M[3]=-425411304
+Updated incr=4
+
+temp0=94, temp1=-425411304
+loc_min=-425411304
+After operation: M[1]=-425411304
+Updated incr=4
+
+temp0=-425411304, temp1=1000000
+Updated incr=4
+loc_min=-425411304
+
+After operation: M[2]=-425411304
+Updated incr=4
+
+M[0] = -425411304
+M[1] = -425411304
+M[2] = -425411304
+M[3] = -425411304
+Binary Tree Algorithm
+m = min(|Bij|) =>
+m = -425411304
+--------------------------------------------
+Task d2.2 finished in 0.000075 sec.
+--------------------------------------------
+
+--------------------------------------------
+Parallel program finished in 0.000447 sec.
+--------------------------------------------
