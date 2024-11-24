@@ -12,10 +12,10 @@
 #include <time.h>
 #include <omp.h>
 
-#define CZ 6
-#define N 16
+#define CZ 50
+#define N 1000
 // σσ2. Τον αριθμό των threads τον δίνει ο χρήστης
-#define T 4
+#define T 100
 
 void create2DArray(int (*Array)[N]);
 void print2DArray(FILE *fp, int Array[N][N]);
@@ -305,46 +305,36 @@ int main(int argc, char *argv[])
     all_time_start += loc_time_start;
 
     printf("=================================== [Task d2.2] ===================================\n");
-    #pragma omp parallel default(shared) private(tid, i, j, incr, loc_min)
+    #pragma omp parallel default(shared) private(tid, i, j, incr, temp0, temp1, loc_min)
     {
-        // Αρχικοποίηση του πίνακα M με μεγάλες τιμές
         tid = omp_get_thread_num();
-        M[tid] = 1000000;
-        
-        // Κάθε thread υπολογίζει το τοπικό ελάχιστο στοιχείο του πίνακα Β και τον αποθηκεύει στην θέση του πίνακα M[tid]
-        // όπου tid είναι το αναγνωριστικό του thread
+        int local_min = 1000000;
+
+        // Compute local minimum for each thread
         #pragma omp for schedule(static, chunk) collapse(2)
         for (i = 0; i < N; i++)
             for (j = 0; j < N; j++)
-                if (B[i][j] < M[tid])
-                    M[tid] = B[i][j];
-              
-        // Αρχικοποίηση των θέσεων του πίνακα Μ που είναι εκτός ορίων του πίνακα Μ
-        // ώστε οι συγκρίσεις που θα γίνονται σε κάθε Φάση του αλγορίθμου δυαδικού δένδρου
-        // να αυξάνονται κατά 2 θέσεις M[i+1], M[i+2], M[i+4], ... , κ.ο.κ.
-        M[T+tid] = 1000000;
+                if (B[i][j] < local_min)
+                    local_min = B[i][j];
 
-        // Αρχικοποίηση του δείκτη επανάληψης του αλγορίθμου δυαδικού δένδρου
-        incr = 1; 
+        M[tid] = local_min;
 
-        // Έναρξη Φάσεων του αλγορίθμου δυαδικού δένδρου
+        #pragma omp barrier // Ensure all threads finish local min calculation
+
+        incr = 1;
         while (incr < T)
         {
-            // Ανάκτηση των τιμών του πίνακα M στις θέσεις tid και tid + incr
-            temp0 = M[tid];
-            temp1 = M[tid + incr];
 
-            // Ανάκτηση του τοπικού ελάχιστου στοιχείου του πίνακα Β
-            loc_min = (temp0 <= temp1) ? temp0 : temp1;
+                temp0 = M[tid];
+                temp1 = M[tid + incr];
+                loc_min = (temp0 <= temp1) ? temp0 : temp1;
+                M[tid] = loc_min;
 
-            // Αποθήκευση του τοπικού ελάχιστου στοιχείου του πίνακα Β στην θέση tid του πίνακα Μ
-            M[tid] = loc_min;
-
-            // Αύξηση του δείκτη επανάληψης του αλγορίθμου δυαδικού δένδρου
+            #pragma omp barrier // Synchronize threads for each phase
             incr = 2 * incr;
         }
-
     }
+
     
     loc_time_end = omp_get_wtime();
     all_time_end += loc_time_end;
@@ -390,7 +380,7 @@ void create2DArray(int (*Array)[N])
 
     srand(time(NULL));
     
-    if (rand() % 2) 
+    if (1)//rand() % 2) 
     {
         // Αυστηρά διαγώνια δεσπόζων
         for (i = 0; i < N; i++) 
