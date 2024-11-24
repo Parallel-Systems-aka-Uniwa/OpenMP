@@ -12,10 +12,10 @@
 #include <time.h>
 #include <omp.h>
 
-#define CZ 50
-#define N 1000
+#define CZ 6
+#define N 16
 // σσ2. Τον αριθμό των threads τον δίνει ο χρήστης
-#define T 100
+#define T 4
 
 void create2DArray(int (*Array)[N]);
 void print2DArray(FILE *fp, int Array[N][N]);
@@ -196,7 +196,7 @@ int main(int argc, char *argv[])
     {
         // Με την οδηγία collapse(2) η nested for-loop συγχωνεύεται ως μία και εκτελείται ισοδύναμα 
         // for (i = 0; i < N * N; i++) { ... } και ο διαμοιρασμός στα threads γίνεται με την for schedule
-        #pragma omp for schedule(static, chunk) collapse(2)
+        #pragma omp for schedule(static, chunk) 
         for (i = 0; i < N; i++)
             for (j = 0; j < N; j++)
                 if (i == j)
@@ -310,27 +310,45 @@ int main(int argc, char *argv[])
         tid = omp_get_thread_num();
         int local_min = 1000000;
 
-        // Compute local minimum for each thread
-        #pragma omp for schedule(static, chunk) collapse(2)
+        // Κάθε thread υπολογίζει το τοπικό ελάχιστο στοιχείο του πίνακα Β και τον αποθηκεύει στην θέση του πίνακα M[tid]
+        // όπου tid είναι το αναγνωριστικό του thread 
+        #pragma omp for schedule(static, chunk) 
         for (i = 0; i < N; i++)
             for (j = 0; j < N; j++)
                 if (B[i][j] < local_min)
                     local_min = B[i][j];
 
+        // Αρχικοποίηση των θέσεων του πίνακα Μ που είναι εκτός ορίων του πίνακα Μ
+        // ώστε οι συγκρίσεις που θα γίνονται σε κάθε Φάση του αλγορίθμου δυαδικού δένδρου
+        // να αυξάνονται κατά 2 θέσεις M[i+1], M[i+2], M[i+4], ... , κ.ο.κ.
         M[tid] = local_min;
 
-        #pragma omp barrier // Ensure all threads finish local min calculation
+        // Συγχρονισμός των threads για κάθε φάση του αλγορίθμου δυαδικού δένδρου
+        #pragma omp barrier
 
+        // Αρχικοποίηση του δείκτη επανάληψης του αλγορίθμου δυαδικού δένδρου
         incr = 1;
+        
+        // Έναρξη Φάσεων του αλγορίθμου δυαδικού δένδρου
         while (incr < T)
         {
-
+            // Από τη στιγμή που δεν μπορούμε να χρησιμοποιήσουμε μηχανισμούς προστασίας κρίσιμης περιοχής,
+            // θα πρέπει να επιβεβαιώσουμε ότι το σωστό thread κάνει την σύγκριση για τα στοιχεία που του ανήκουν.
+            // Αυτό επιτυγχάνεται με την χρήση των συνθηκών tid % (2 * incr) == 0 και tid + incr < T
+            // Συνθήκη 1: tid % (2 * incr) == 0, όσο περνάνε οι φάσεις του αλγορίθμου, τα threads που εργάζονται μειώνονται
+            // Συνθήκη 2: tid + incr < T, για να μην ξεφύγουμε από τα όρια του πίνακα Μ
+            if (tid % (2 * incr) == 0 && tid + incr < T) 
+            {
                 temp0 = M[tid];
                 temp1 = M[tid + incr];
                 loc_min = (temp0 <= temp1) ? temp0 : temp1;
                 M[tid] = loc_min;
+            }
 
-            #pragma omp barrier // Synchronize threads for each phase
+            // Συγχρονισμός των threads για την επόμενη φάση του αλγορίθμου δυαδικού δένδρου
+            #pragma omp barrier 
+
+            // Αύξηση του δείκτη επανάληψης του αλγορίθμου δυαδικού δένδρου
             incr = 2 * incr;
         }
     }
@@ -380,7 +398,8 @@ void create2DArray(int (*Array)[N])
 
     srand(time(NULL));
     
-    if (1)//rand() % 2) 
+    // Τυχαία επιλογή αν ο πίνακας θα είναι αυστηρά διαγώνια δεσπόζων ή μη αυστηρά διαγώνια δεσπόζων. Τιμές στο διάστημα [0, 1]
+    if (rand() % 2) 
     {
         // Αυστηρά διαγώνια δεσπόζων
         for (i = 0; i < N; i++) 
