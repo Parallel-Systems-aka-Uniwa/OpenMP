@@ -12,10 +12,10 @@
 #include <time.h>
 #include <omp.h>
 
-#define CZ 7
-#define N 49
+#define CZ 6
+#define N 16
 // σσ2. Τον αριθμό των threads τον δίνει ο χρήστης
-#define T 50
+#define T 4
 
 void create2DArray(int (*Array)[N]);
 void print2DArray(FILE *fp, int Array[N][N]);
@@ -123,15 +123,17 @@ int main(int argc, char *argv[])
     all_time_end += loc_time_end;
     // --------- Λήξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία a ---------
 
+    printf("Is A strictly diagonal dominant?\n");
     // σσ1. δεν ισχύει το a.
     if (!flag)
     {
-        printf("The A is NOT strictly diagonial dominant array\n");
+        printf("NO\n");
         printf("The array is printed in file %s\n", argv[1]);
 
         printf("\n--------------------------------------------\n");
         printf("Task a. finished in %lf sec.\n", loc_time_end - loc_time_start);
         printf("--------------------------------------------\n");
+        printf("=================================================================================\n");
         
         // Εκτύπωση συνολικού χρόνου εκτέλεσης του παράλληλου προγράμματος
         printf("\n--------------------------------------------\n");
@@ -142,12 +144,13 @@ int main(int argc, char *argv[])
     }
 
     // Ο πίνακας Α είναι αυστηρά διαγώνια δεσπόζων
-    printf("The A is strictly diagonial dominant array\n");
+    printf("YES\n");
     printf("The array is printed in file %s\n", argv[1]);
 
     printf("--------------------------------------------\n");
     printf("Task a. finished in %lf sec.\n", loc_time_end - loc_time_start);
     printf("--------------------------------------------\n");
+    printf("=================================================================================\n");
 
 /*
  *  [Task b.] => Να υπολογιστεί παράλληλα το m = max(|Aii|), i = 0...N-1
@@ -178,6 +181,7 @@ int main(int argc, char *argv[])
     printf("--------------------------------------------\n");
     printf("Task b. finished in %lf sec.\n", loc_time_end - loc_time_start);
     printf("--------------------------------------------\n");
+    printf("=================================================================================\n");
 
 
 /*
@@ -206,11 +210,13 @@ int main(int argc, char *argv[])
     // --------- Λήξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία c ---------
 
     print2DArray(fpB, B);
+    printf("Bij = m - |Aij| for i <> j and Bij = m for i = j\n");
     printf("The array is printed in file %s\n", argv[2]);
     
     printf("--------------------------------------------\n");
     printf("Task c. finished in %lf sec.\n", loc_time_end - loc_time_start);
     printf("--------------------------------------------\n");
+    printf("=================================================================================\n");
 
 /*
  *  [Task d.] => Να υπολογιστεί παράλληλα το ελάχιστο στοιχείο του πίνακα Β min_val = min(|Bij|)
@@ -238,12 +244,13 @@ int main(int argc, char *argv[])
     // --------- Λήξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία d1 ---------
 
     printf("With reduction\n");
-    printf("min_val = min(|Bij|) =>\n");
-    printf("min_val = %d\n", min_val);
+    printf("m = min(|Bij|) =>\n");
+    printf("m = %d\n", min_val);
     
     printf("--------------------------------------------\n");
     printf("Task d1. finished in %lf sec.\n", loc_time_end - loc_time_start);
     printf("--------------------------------------------\n");
+    printf("=================================================================================\n");
 
 /*
  *  [Task d.] => Να υπολογιστεί παράλληλα το ελάχιστο στοιχείο του πίνακα Β min_val = min(|Bij|)
@@ -284,6 +291,7 @@ int main(int argc, char *argv[])
     printf("--------------------------------------------\n");
     printf("Task d2.1 finished in %lf sec.\n", loc_time_end - loc_time_start);
     printf("--------------------------------------------\n");
+    printf("=================================================================================\n");
 
 /*
  *  [Task d.] => Να υπολογιστεί παράλληλα το ελάχιστο στοιχείο του πίνακα Β min_val = min(|Bij|)
@@ -291,7 +299,6 @@ int main(int argc, char *argv[])
  *          [Task d2.2] = ... με χρήση αλγορίθμου δυαδικού δένδρου
  */ 
     min_val = B[0][0]; // Αρχικοποίηση του min_val με το πρώτο στοιχείο του πίνακα Β
-    printf("\n\n\n--------------------\n\n\n");
 
     // --------- Έναρξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία d2.2 ---------
     loc_time_start = omp_get_wtime();
@@ -300,55 +307,41 @@ int main(int argc, char *argv[])
     printf("=================================== [Task d2.2] ===================================\n");
     #pragma omp parallel default(shared) private(tid, i, j, incr, loc_min)
     {
+        // Αρχικοποίηση του πίνακα M με μεγάλες τιμές
         tid = omp_get_thread_num();
         M[tid] = 1000000;
         
+        // Κάθε thread υπολογίζει το τοπικό ελάχιστο στοιχείο του πίνακα Β και τον αποθηκεύει στην θέση του πίνακα M[tid]
+        // όπου tid είναι το αναγνωριστικό του thread
         #pragma omp for schedule(static, chunk) collapse(2)
         for (i = 0; i < N; i++)
             for (j = 0; j < N; j++)
                 if (B[i][j] < M[tid])
                     M[tid] = B[i][j];
-        
-        #pragma omp master
-        {
-            for (i = 0; i < T; i++)
-                printf("M[%d] = %d\n", i, M[i]);
-        }
-        #pragma omp barrier
-        
-        M[T+tid] = 1000000; // Initialize memory
-        printf("M[%d] = %d\n", T+tid, M[T+tid]);
-        #pragma omp barrier
+              
+        // Αρχικοποίηση των θέσεων του πίνακα Μ που είναι εκτός ορίων του πίνακα Μ
+        // ώστε οι συγκρίσεις που θα γίνονται σε κάθε Φάση του αλγορίθμου δυαδικού δένδρου
+        // να αυξάνονται κατά 2 θέσεις M[i+1], M[i+2], M[i+4], ... , κ.ο.κ.
+        M[T+tid] = 1000000;
 
-        incr = 1; // Initialize increment
+        // Αρχικοποίηση του δείκτη επανάληψης του αλγορίθμου δυαδικού δένδρου
+        incr = 1; 
+
+        // Έναρξη Φάσεων του αλγορίθμου δυαδικού δένδρου
         while (incr < T)
         {
-            // Print the values before the operations in the current loop iteration
-            printf("Before operation: tid=%d, incr=%d, M[%d]=%d, M[%d]=%d\n", 
-                tid, incr, tid, M[tid], tid+incr, M[tid+incr]);
-
+            // Ανάκτηση των τιμών του πίνακα M στις θέσεις tid και tid + incr
             temp0 = M[tid];
             temp1 = M[tid + incr];
 
-            // Print the temporary values fetched from memory
-            printf("temp0=%d, temp1=%d\n", temp0, temp1);
-
+            // Ανάκτηση του τοπικού ελάχιστου στοιχείου του πίνακα Β
             loc_min = (temp0 <= temp1) ? temp0 : temp1;
 
-            // Print the calculated local minimum
-            printf("loc_min=%d\n", loc_min);
-
+            // Αποθήκευση του τοπικού ελάχιστου στοιχείου του πίνακα Β στην θέση tid του πίνακα Μ
             M[tid] = loc_min;
 
-            // Print the updated memory value
-            printf("After operation: M[%d]=%d\n", tid, M[tid]);
-
+            // Αύξηση του δείκτη επανάληψης του αλγορίθμου δυαδικού δένδρου
             incr = 2 * incr;
-
-            // Print the new increment value
-            printf("Updated incr=%d\n", incr);
-            
-            printf("\n");
         }
 
     }
@@ -357,9 +350,8 @@ int main(int argc, char *argv[])
     all_time_end += loc_time_end;
     // --------- Λήξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία d2.2 ---------
     
-    for(i = 0; i < T; i++)
-        printf("M[%d] = %d\n", i, M[i]);
-
+    // Εύρεση του ελάχιστου στοιχείου του πίνακα Β με την χρήση του αλγορίθμου δυαδικού δένδρου
+    // Το ελάχιστο στοιχείο αποθηκεύεται στην θέση M[0] του πίνακα Μ
     printf("Binary Tree Algorithm\n");
     printf("m = min(|Bij|) =>\n");
     printf("m = %d\n", M[0]);
@@ -367,6 +359,7 @@ int main(int argc, char *argv[])
     printf("--------------------------------------------\n");
     printf("Task d2.2 finished in %lf sec.\n", loc_time_end - loc_time_start);
     printf("--------------------------------------------\n");
+    printf("=================================================================================\n");
     
 // ========================================== [Λήξη Παράλληλου Υπολογισμού] ==========================================
     
