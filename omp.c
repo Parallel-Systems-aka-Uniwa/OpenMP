@@ -12,10 +12,11 @@
 #include <time.h>
 #include <omp.h>
 
-#define CZ 6
-#define N 16
 // σσ2. Τον αριθμό των threads τον δίνει ο χρήστης
 #define T 4
+#define N 16
+#define CZ 6
+
 
 void create2DArray(int (*Array)[N]);
 void print2DArray(FILE *fp, int Array[N][N]);
