@@ -128,7 +128,7 @@ int main(int argc, char *argv[])
     if (!flag)
     {
         printf("NO\n");
-        printf("The array is printed in file %s\n", argv[1]);
+        printf("The array has been stored in file %s\n", argv[1]);
 
         printf("\n--------------------------------------------\n");
         printf("Task a. finished in %lf sec.\n", loc_time_end - loc_time_start);
@@ -145,7 +145,7 @@ int main(int argc, char *argv[])
 
     // Ο πίνακας Α είναι αυστηρά διαγώνια δεσπόζων
     printf("YES\n");
-    printf("The array is printed in file %s\n", argv[1]);
+    printf("The array has been stored in file %s\n", argv[1]);
 
     printf("--------------------------------------------\n");
     printf("Task a. finished in %lf sec.\n", loc_time_end - loc_time_start);
@@ -211,7 +211,7 @@ int main(int argc, char *argv[])
 
     print2DArray(fpB, B);
     printf("Bij = m - |Aij| for i <> j and Bij = m for i = j\n");
-    printf("The array is printed in file %s\n", argv[2]);
+    printf("The array has been stored in file %s\n", argv[2]);
     
     printf("--------------------------------------------\n");
     printf("Task c. finished in %lf sec.\n", loc_time_end - loc_time_start);
