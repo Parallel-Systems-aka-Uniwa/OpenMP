@@ -328,20 +328,20 @@ int main(int argc, char *argv[])
     #pragma omp parallel default(shared) private(tid, i, j, incr, temp0, temp1, loc_min)
     {
         tid = omp_get_thread_num();
-        int local_min = 1000000;
+        loc_min = 1000000;
 
         // Κάθε thread υπολογίζει το τοπικό ελάχιστο στοιχείο του πίνακα Β και τον αποθηκεύει στην θέση του πίνακα M[tid]
         // όπου tid είναι το αναγνωριστικό του thread 
         #pragma omp for schedule(static, chunk) 
         for (i = 0; i < N; i++)
             for (j = 0; j < N; j++)
-                if (B[i][j] < local_min)
-                    local_min = B[i][j];
+                if (B[i][j] < loc_min)
+                    loc_min = B[i][j];
 
         // Αρχικοποίηση των θέσεων του πίνακα Μ που είναι εκτός ορίων του πίνακα Μ
         // ώστε οι συγκρίσεις που θα γίνονται σε κάθε Φάση του αλγορίθμου δυαδικού δένδρου
         // να αυξάνονται κατά 2 θέσεις M[i+1], M[i+2], M[i+4], ... , κ.ο.κ.
-        M[tid] = local_min;
+        M[tid] = loc_min;
 
         // Συγχρονισμός των threads για κάθε φάση του αλγορίθμου δυαδικού δένδρου
         #pragma omp barrier
