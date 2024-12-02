@@ -100,8 +100,8 @@ int main(int argc, char *argv[])
         loc_flag = 1;
 
         // Παραλληλοποίηση του ελέγχου του πίνακα Α με for-schedule 
-        #pragma omp for schedule(static, chunk)
-        //#pragma omp for schedule(dynamic, chunk)
+        //#pragma omp for schedule(static, chunk)
+        #pragma omp for schedule(dynamic, chunk)
         for (i = 0; i < N; i++)
         {
             loc_sum = 0;
@@ -172,8 +172,8 @@ int main(int argc, char *argv[])
     #pragma omp parallel default(shared) private(i)
     {
         // Υπολογισμός του m με reduction clause
-        #pragma omp for schedule(static, chunk) reduction(max : m)
-        // #pragma omp for schedule(dynamic, chunk) reduction(max : m)
+        //#pragma omp for schedule(static, chunk) reduction(max : m)
+        #pragma omp for schedule(dynamic, chunk) reduction(max : m)
         for (i = 0; i < N; i++)
             if (A[i][i] > m)
                 m = A[i][i];
@@ -205,8 +205,8 @@ int main(int argc, char *argv[])
     {
         // Με την οδηγία collapse(2) η nested for-loop συγχωνεύεται ως μία και εκτελείται ισοδύναμα 
         // for (i = 0; i < N * N; i++) { ... } και ο διαμοιρασμός στα threads γίνεται με την for schedule
-        #pragma omp for schedule(static, chunk) collapse(2)
-        // #pragma omp for schedule(dynamic, chunk) collapse(2) 
+        //#pragma omp for schedule(static, chunk) collapse(2)
+        #pragma omp for schedule(dynamic, chunk) collapse(2) 
         for (i = 0; i < N; i++)
             for (j = 0; j < N; j++)
                 if (i == j)
@@ -245,8 +245,8 @@ int main(int argc, char *argv[])
     #pragma omp parallel default(shared) private(i, j)
     {
         // Υπολογισμός του min_val με reduction clause
-        #pragma omp for schedule(static, chunk) reduction(min : min_val)
-        // #pragma omp for schedule(dynamic, chunk) reduction(min : min_val)
+        //#pragma omp for schedule(static, chunk) reduction(min : min_val)
+        #pragma omp for schedule(dynamic, chunk) reduction(min : min_val)
         for (i = 0; i < N; i++)
             for (j = 0; j < N; j++)
                 if (B[i][j] < min_val)
@@ -286,8 +286,8 @@ int main(int argc, char *argv[])
     #pragma omp parallel shared(min_val) private(i, j)
     {
 
-        #pragma omp for schedule(static, chunk)
-        // #pragma omp for schedule(dynamic, chunk)
+        //#pragma omp for schedule(static, chunk)
+        #pragma omp for schedule(dynamic, chunk)
         for (i = 0; i < N; i++)
             for (j = 0; j < N; j++)
                 if (B[i][j] < min_val)
@@ -337,8 +337,8 @@ int main(int argc, char *argv[])
 
         // Κάθε thread υπολογίζει το τοπικό ελάχιστο στοιχείο του πίνακα Β και τον αποθηκεύει στην θέση του πίνακα M[tid]
         // όπου tid είναι το αναγνωριστικό του thread 
-        #pragma omp for schedule(static, chunk)
-        // #pragma omp for schedule(dynamic, chunk)
+        //#pragma omp for schedule(static, chunk)
+        #pragma omp for schedule(dynamic, chunk)
         for (i = 0; i < N; i++)
             for (j = 0; j < N; j++)
                 if (B[i][j] < loc_min)
