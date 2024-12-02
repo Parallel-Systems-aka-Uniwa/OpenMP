@@ -16,9 +16,9 @@
 #include <omp.h>
 
 // σσ2. Τον αριθμό των threads τον δίνει ο χρήστης
-#define T 5
-#define N 25
-#define CZ 2
+#define T 50
+#define N 1000
+#define CZ 20
 
 
 void create2DArray(int (*Array)[N]);
