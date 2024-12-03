@@ -65,6 +65,10 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+    printf("Threads     : %d\n", T);
+    printf("Matrix size : %d x %d\n", N, N);
+    printf("Chunk size  : %d\n", CZ);
+
 /*
  *  Αρχικοποίησεις:
  * 
