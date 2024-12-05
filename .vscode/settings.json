@@ -4,6 +4,9 @@
         "*.page-template": "vue",
         "*.layout-template": "vue",
         "*.vue": "vue",
-        "Y.C": "cpp"
+        "Y.C": "cpp",
+        "time.h": "c",
+        "stdlib.h": "c",
+        "omp.h": "c"
     }
 }
