@@ -4,7 +4,7 @@ Chunk size  : 3
 =================================== [Task a.] ===================================
 Is A strictly diagonal dominant?
 YES
-The array has been stored in file A_1_16_3.txt
+The array has been stored in file A/A_T1_N16_CZ3.txt
 --------------------------------------------
 Task a. finished in 0.000018 sec.
 --------------------------------------------
@@ -18,7 +18,7 @@ Task b. finished in 0.000002 sec.
 =================================================================================
 =================================== [Task c.] ===================================
 Bij = m - |Aij| for i <> j and Bij = m for i = j
-The array has been stored in file B_1_16_3.txt
+The array has been stored in file B/B_T1_N16_CZ3.txt
 --------------------------------------------
 Task c. finished in 0.000003 sec.
 --------------------------------------------
