@@ -17,8 +17,8 @@
 
 // σσ2. Τον αριθμό των threads τον δίνει ο χρήστης
 #define T 4
-#define N 10
-#define CZ 2
+#define N 16
+#define CZ 4
 
 
 void create2DArray(int (*Array)[N]);
