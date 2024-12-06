@@ -16,19 +16,19 @@
 #include <omp.h>
 
 // σσ2. Τον αριθμό των threads τον δίνει ο χρήστης
-#define T 4
-#define N 16
-#define CZ 4
+#define T 100
+#define N 1000000
+#define CZ 100
 
 
-void create2DArray(int (*Array)[N]);
-void print2DArray(FILE *fp, int Array[N][N]);
+void create2DArray(int **Array);
+void print2DArray(FILE *fp, int **Array);
 
 int main(int argc, char *argv[]) 
 {
-    int A[N][N];                                // Ο πίνακας Α που θα εξετάσουμε αν είναι αυστηρά διαγώνια δεσπόζων
-    int B[N][N];                                // Bij = m – |Aij| για i<>j και Bij = m για i=j 
-    int M[T];                                   // Ο πίνακας Μ που θα χρησιμοποιήσουμε για τον αλγόριθμο δυαδικού δένδρου
+    int **A;                                // Ο πίνακας Α που θα εξετάσουμε αν είναι αυστηρά διαγώνια δεσπόζων
+    int **B;                                // Bij = m – |Aij| για i<>j και Bij = m για i=j 
+    int *M;                                   // Ο πίνακας Μ που θα χρησιμοποιήσουμε για τον αλγόριθμο δυαδικού δένδρου
     FILE *fpA, *fpB;                            // Αρχεία εξόδου για την αποθήκευση των πινάκων Α και Β
     int i, j, k;                                // Δείκτες επανάληψης
     int rowSum;                                 // Άθροισμα των στοιχείων μιας γραμμής του πίνακα Α
@@ -68,6 +68,26 @@ int main(int argc, char *argv[])
     printf("Threads     : %d\n", T);
     printf("Matrix size : %d x %d\n", N, N);
     printf("Chunk size  : %d\n", CZ);
+
+    A = (int **)malloc(N * sizeof(int *));
+    B = (int **)malloc(N * sizeof(int *));
+    for (i = 0; i < N; i++) {
+        A[i] = (int *)malloc(N * sizeof(int));
+        if (A[i] == NULL) {
+            printf("Memory allocation failed for A[%d]\n", i);
+            exit(1);
+        }
+        B[i] = (int *)malloc(N * sizeof(int));
+        if (B[i] == NULL) {
+            printf("Memory allocation failed for B[%d]\n", i);
+            exit(1);
+        }
+    }
+    M = (int *)malloc(T * sizeof(int));
+    if (!M) {
+        printf("Memory allocation failed for M\n");
+        exit(1);
+    }
 
 /*
  *  Αρχικοποίησεις:
@@ -403,6 +423,14 @@ int main(int argc, char *argv[])
     fclose(fpA);
     fclose(fpB);
 
+    for (i = 0; i < N; i++) {
+        free(A[i]);
+        free(B[i]);
+    }
+    free(A);
+    free(B);
+    free(M);
+
     return 0;
 }
 
@@ -415,7 +443,7 @@ int main(int argc, char *argv[])
  *  ο πίνακας είναι αυστηρά διαγώνια δεσπόζων ή μη αυστηρά διαγώνια δεσπόζων. 
  *  Ο πίνακας επιστρέφεται στο σημείο κλήσης μέσω αναφοράς (by reference).
  */
-void create2DArray(int (*Array)[N])
+void create2DArray(int **Array)
 {
     int i, j;
     int rowSum;
@@ -488,7 +516,7 @@ void create2DArray(int (*Array)[N])
  * 
  *  Συνάρτηση που εκτυπώνει έναν πίνακα διάστασης N x N σε ένα αρχείο εξόδου
  */
-void print2DArray(FILE *fp, int Array[N][N])
+void print2DArray(FILE *fp, int **Array)
 {
     int i, j;
 
