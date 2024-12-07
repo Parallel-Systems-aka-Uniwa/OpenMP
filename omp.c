@@ -21,18 +21,19 @@
 #define CZ 4
 
 
-void create2DArray(int **Array);
-void print2DArray(FILE *fp, int **Array);
+void create2DArray(int **Array, int size);
+void print2DArray(FILE *fp, int **Array, int size);
 
 int main(int argc, char *argv[]) 
 {
     int **A;                                    // Ο πίνακας Α που θα εξετάσουμε αν είναι αυστηρά διαγώνια δεσπόζων
     int **B;                                    // Bij = m – |Aij| για i<>j και Bij = m για i=j 
     int *M;                                     // Ο πίνακας Μ που θα χρησιμοποιήσουμε για τον αλγόριθμο δυαδικού δένδρου
+    int threads, size, chunk;                   // Ο αριθμός των threads, το μέγεθος του πίνακα και αριθμός επαναλήψεων ανά thread
     FILE *fpA, *fpB;                            // Αρχεία εξόδου για την αποθήκευση των πινάκων Α και Β
     int i, j, k;                                // Δείκτες επανάληψης
     int rowSum;                                 // Άθροισμα των στοιχείων μιας γραμμής του πίνακα Α
-    int chunk, flag, tid;                       // Αριθμός επαναλήψεων ανά thread, Είναι ή δεν είναι ο Α αυστηρά διαγώνια δεσπόζων, Αναγνωριστικό thread
+    int flag, tid;                              // Είναι ή δεν είναι ο Α αυστηρά διαγώνια δεσπόζων, Αναγνωριστικό thread
     int loc_sum, loc_flag, loc_index, loc_min;  // Τοπικές μεταβλητές για κάθε thread
     int incr, temp0, temp1;                     // Μεταβλητές για τον αλγόριθμο δυαδικού δένδρου
     int m;                                      // Μέγιστη τιμή της διαγωνίου του πίνακα Α
@@ -43,7 +44,12 @@ int main(int argc, char *argv[])
 /*
  *  Ορισμός του αριθμού των threads και άνοιγμα των αρχείων εξόδου 
  */
-    omp_set_num_threads(T);
+    // Επιβεβαιώνουμε ότι οι παράμετροι είναι ακέραιοι
+    threads = T;
+    size = N;
+    chunk = CZ;
+
+    omp_set_num_threads(threads);
 
     if (argc != 3) 
     {
@@ -65,26 +71,33 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    printf("Threads     : %d\n", T);
-    printf("Matrix size : %d x %d\n", N, N);
-    printf("Chunk size  : %d\n", CZ);
+    printf("Threads     : %d\n", threads);
+    printf("Matrix size : %d x %d\n", size, size);
+    printf("Chunk size  : %d\n", chunk);
 
-    A = (int **)malloc(N * sizeof(int *));
-    B = (int **)malloc(N * sizeof(int *));
-    for (i = 0; i < N; i++) {
-        A[i] = (int *)malloc(N * sizeof(int));
-        if (A[i] == NULL) {
+/*
+ *  Δέσμευση μνήμης για τους πίνακες Α, Β και Μ
+ */
+    A = (int **) malloc(size * sizeof(int *));
+    B = (int **) malloc(size * sizeof(int *));
+    for (i = 0; i < size; i++) 
+    {
+        A[i] = (int *) malloc(size * sizeof(int));
+        if (A[i] == NULL) 
+        {
             printf("Memory allocation failed for A[%d]\n", i);
             exit(1);
         }
-        B[i] = (int *)malloc(N * sizeof(int));
-        if (B[i] == NULL) {
+        B[i] = (int *)malloc(size * sizeof(int));
+        if (B[i] == NULL) 
+        {
             printf("Memory allocation failed for B[%d]\n", i);
             exit(1);
         }
     }
-    M = (int *)malloc(T * sizeof(int));
-    if (!M) {
+    M = (int *)malloc(threads * sizeof(int));
+    if (M == NULL) 
+    {
         printf("Memory allocation failed for M\n");
         exit(1);
     }
@@ -92,15 +105,13 @@ int main(int argc, char *argv[])
 /*
  *  Αρχικοποίησεις:
  * 
- *  του αριθμού επαναλήψεων ανά thread, 
  *  του flag που ελέγχει αν ο Α είναι αυστηρά διαγώνια δεσπόζων,
  *  του πίνακα Α
  */
-    chunk = CZ;
     flag = 1;
 
-    create2DArray(A);
-    print2DArray(fpA, A);
+    create2DArray(A, size);
+    print2DArray(fpA, A, size);
 
 /*
  *  Αρχικοποιήσεις μέτρησης συνολικού χρόνου εκτέλεσης του παράλληλου προγράμματος για όλες τις υποεργασίες a, b, c, d1, d2.1, d2.2
@@ -125,11 +136,11 @@ int main(int argc, char *argv[])
 
         // Παραλληλοποίηση του ελέγχου του πίνακα Α με for-schedule 
         #pragma omp for schedule(static, chunk)
-        for (i = 0; i < N; i++)
+        for (i = 0; i < size; i++)
         {
             loc_sum = 0;
 
-            for (j = 0; j < N; j++)
+            for (j = 0; j < size; j++)
                 if (i != j)
                     loc_sum += abs(A[i][j]); 
                 else     
@@ -196,7 +207,7 @@ int main(int argc, char *argv[])
     {
         // Υπολογισμός του m με reduction clause
         #pragma omp for schedule(static, chunk) reduction(max : m)
-        for (i = 0; i < N; i++)
+        for (i = 0; i < size; i++)
             if (A[i][i] > m)
                 m = A[i][i];
     }
@@ -228,8 +239,8 @@ int main(int argc, char *argv[])
         // Με την οδηγία collapse(2) η nested for-loop συγχωνεύεται ως μία και εκτελείται ισοδύναμα 
         // for (i = 0; i < N * N; i++) { ... } και ο διαμοιρασμός στα threads γίνεται με την for schedule
         #pragma omp for schedule(static, chunk) collapse(2)
-        for (i = 0; i < N; i++)
-            for (j = 0; j < N; j++)
+        for (i = 0; i < size; i++)
+            for (j = 0; j < size; j++)
                 if (i == j)
                     B[i][j] = m;
                 else
@@ -240,7 +251,7 @@ int main(int argc, char *argv[])
     all_time_end += loc_time_end;
     // --------- Λήξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία c ---------
 
-    print2DArray(fpB, B);
+    print2DArray(fpB, B, size);
     printf("Bij = m - |Aij| for i <> j and Bij = m for i = j\n");
     printf("The array has been stored in file %s\n", argv[2]);
     
@@ -267,8 +278,8 @@ int main(int argc, char *argv[])
     {
         // Υπολογισμός του min_val με reduction clause
         #pragma omp for schedule(static, chunk) reduction(min : min_val)
-        for (i = 0; i < N; i++)
-            for (j = 0; j < N; j++)
+        for (i = 0; i < size; i++)
+            for (j = 0; j < size; j++)
                 if (B[i][j] < min_val)
                     min_val = B[i][j];
     }
@@ -307,8 +318,8 @@ int main(int argc, char *argv[])
     {
 
         #pragma omp for schedule(static, chunk)
-        for (i = 0; i < N; i++)
-            for (j = 0; j < N; j++)
+        for (i = 0; i < size; i++)
+            for (j = 0; j < size; j++)
                 if (B[i][j] < min_val)
                 {
                     // Κρίσιμη περιοχή για την ενημέρωση της κοινής μεταβλητής min_val
@@ -357,8 +368,8 @@ int main(int argc, char *argv[])
         // Κάθε thread υπολογίζει το τοπικό ελάχιστο στοιχείο του πίνακα Β και τον αποθηκεύει στην θέση του πίνακα M[tid]
         // όπου tid είναι το αναγνωριστικό του thread 
         #pragma omp for schedule(static, chunk)
-        for (i = 0; i < N; i++)
-            for (j = 0; j < N; j++)
+        for (i = 0; i < size; i++)
+            for (j = 0; j < size; j++)
                 if (B[i][j] < loc_min)
                     loc_min = B[i][j];
 
@@ -374,14 +385,14 @@ int main(int argc, char *argv[])
         incr = 1;
         
         // Έναρξη Φάσεων του αλγορίθμου δυαδικού δένδρου
-        while (incr < T)
+        while (incr < threads)
         {
             // Από τη στιγμή που δεν μπορούμε να χρησιμοποιήσουμε μηχανισμούς προστασίας κρίσιμης περιοχής,
             // θα πρέπει να επιβεβαιώσουμε ότι το σωστό thread κάνει την σύγκριση για τα στοιχεία που του ανήκουν.
             // Αυτό επιτυγχάνεται με την χρήση των συνθηκών tid % (2 * incr) == 0 και tid + incr < T
             // Συνθήκη 1: tid % (2 * incr) == 0, όσο περνάνε οι φάσεις του αλγορίθμου, τα threads που εργάζονται μειώνονται
             // Συνθήκη 2: tid + incr < T, για να μην ξεφύγουμε από τα όρια του πίνακα Μ
-            if (tid % (2 * incr) == 0 && tid + incr < T) 
+            if (tid % (2 * incr) == 0 && tid + incr < threads) 
             {
                 temp0 = M[tid];
                 temp1 = M[tid + incr];
@@ -420,10 +431,14 @@ int main(int argc, char *argv[])
     printf("Parallel program finished in %lf sec.\n", all_time_end - all_time_start);
     printf("--------------------------------------------\n");
 
+/*
+ *  Κλείσιμο αρχείων και αποδέσμευση μνήμης
+ */
     fclose(fpA);
     fclose(fpB);
 
-    for (i = 0; i < N; i++) {
+    for (i = 0; i < size; i++) 
+    {
         free(A[i]);
         free(B[i]);
     }
@@ -443,7 +458,7 @@ int main(int argc, char *argv[])
  *  ο πίνακας είναι αυστηρά διαγώνια δεσπόζων ή μη αυστηρά διαγώνια δεσπόζων. 
  *  Ο πίνακας επιστρέφεται στο σημείο κλήσης μέσω αναφοράς (by reference).
  */
-void create2DArray(int **Array)
+void create2DArray(int **Array, int size)
 {
     int i, j;
     int rowSum;
@@ -454,10 +469,10 @@ void create2DArray(int **Array)
     if (1)//rand() % 2) 
     {
         // Αυστηρά διαγώνια δεσπόζων
-        for (i = 0; i < N; i++) 
+        for (i = 0; i < size; i++) 
         {
             rowSum = 0;
-            for (j = 0; j < N; j++) 
+            for (j = 0; j < size; j++) 
             {
                 if (i == j) 
                 {
@@ -482,10 +497,10 @@ void create2DArray(int **Array)
     else
     {
         // Μη αυστηρά διαγώνια δεσπόζων
-        for (i = 0; i < N; i++) 
+        for (i = 0; i < size; i++) 
         {
             rowSum = 0;
-            for (j = 0; j < N; j++)
+            for (j = 0; j < size; j++)
             {
                 if (i == j) 
                 {
@@ -516,13 +531,13 @@ void create2DArray(int **Array)
  * 
  *  Συνάρτηση που εκτυπώνει έναν πίνακα διάστασης N x N σε ένα αρχείο εξόδου
  */
-void print2DArray(FILE *fp, int **Array)
+void print2DArray(FILE *fp, int **Array, int size)
 {
     int i, j;
 
-    for (i = 0; i < N; i++)
+    for (i = 0; i < size; i++)
     {
-        for (j = 0; j < N; j++)
+        for (j = 0; j < size; j++)
             fprintf(fp, "%4d ", Array[i][j]);
         fprintf(fp, "\n");
     }
