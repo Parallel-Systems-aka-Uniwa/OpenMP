@@ -29,7 +29,6 @@ void merge(int *startA, int *endA, int *startB, int *endB, int *space);
 int main(int argc, char *argv[]) 
 {
     int *A, *Space;
-    FILE *fpA_unsort, *fpA_sort;
     int threads, size;
     int i;
 
@@ -40,28 +39,10 @@ int main(int argc, char *argv[])
 
     omp_set_num_threads(threads);
 
-    if (argc != 3) 
-    {
-        printf("Usage: %s A_unsort.txt A_sort.txt\n", argv[0]);
-        exit(1);
-    }
-
-    fpA_unsort = fopen(argv[1], "w");
-    if (fpA_unsort == NULL) 
-    {
-        printf("Cannot open file %s\n", argv[1]);
-        exit(1);
-    }
-
-    fpA_sort = fopen(argv[2], "w");
-    if (fpA_sort == NULL)
-    {
-        printf("Cannot open file %s\n", argv[2]);
-        exit(1);
-    }
-
     printf("Threads          : %d\n", threads);
     printf("Matrix size      : %d\n", size);
+    printf("LIMIT            : %d\n", LIMIT);
+    printf("-----------------------\n");
 
     A = (int *) malloc(size * sizeof(int));
     if (A == NULL)
@@ -82,8 +63,12 @@ int main(int argc, char *argv[])
         A[i] = rand() % 199 - 99;
         A[i] = A[i] >= 0 ? A[i] + 10 : A[i] - 10; 
     }
+    
+    printf("Array BEFORE sort..\n");
+    printf("-----------------------\n");
     for (i = 0; i < size; i++)
-        fprintf(fpA_unsort, "%d ", A[i]);
+        printf("%d ", A[i]);
+    printf("\n");
 
     #pragma omp parallel
     {
@@ -91,11 +76,12 @@ int main(int argc, char *argv[])
         multisort(A, Space, size);
     }
 
+    printf("-----------------------\n");
+    printf("Array AFTER sort..\n");
+    printf("-----------------------\n");
     for (i = 0; i < size; i++)
-        fprintf(fpA_sort, "%d ", A[i]);
-
-    fclose(fpA_unsort);
-    fclose(fpA_sort);
+        printf("%d ", A[i]);
+    printf("\n");
 
     free(A);
     free(Space);
