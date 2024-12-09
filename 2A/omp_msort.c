@@ -17,7 +17,7 @@
 
 
 #define T 4
-#define N 20
+#define N 50
 #define LIMIT 4
 
 void multisort(int *start, int *space, int size);
@@ -163,21 +163,21 @@ int* pivotPartition(int *start, int *end)
     int *pvt;
     int *i, *j;
 
-    pvt = end;  // Pivot is the last element
-    i = start - 1;  // Initialize i to one element before the start
+    pvt = end;  
+    i = start - 1;  
 
-    for (j = start; j < end; j++)  // Iterate over the elements
+    for (j = start; j < end; j++)  
     {
-        if (*j <= *pvt)  // Compare values
+        if (*j <= *pvt)  
         {
             i++;
-            swap(i, j);  // Swap values
+            swap(i, j); 
         }
     }
 
-    swap(i + 1, pvt);  // Put pivot in its correct position
+    swap(i + 1, pvt);  
 
-    return i + 1;  // Return the partition index
+    return i + 1; 
 }
 
 
@@ -223,79 +223,9 @@ void merge(int *startA, int *endA, int *startB, int *endB, int *space)
         k++;
     }
 
-    // Copy the merged result back to the original array
     for (i = space; i < k; i++)
     {
         *startA = *i;
         startA++;
     }
 }
-
-
-/*
-void quicksort(int *Array, int start, int end)
-{
-    int pvt;
-
-    if (start < end)
-    {
-        pvt = pivotPartition(Array, start, end, end);
-        quicksort(Array, start, pvt - 1);
-        quicksort(Array, pvt + 1, end);
-    }
-}
-
-int pivotPartition(int *A, int start, int end, int pvt)
-{
-    int i, j;
-
-    swap(&A[pvt], &A[end]);
-    i = start;
-    j = end;
-
-    while (i < j)
-        while(i < j && A[i] <= A[end])
-            i++;
-        while(i < j && A[j] >= A[end])
-            j--;
-        swap(&A[i], &A[j]);
-    swap(A[i], A[end]);
-
-    return i;
-}
-
-void swap(int *a, int *b)
-{
-    int temp;
-
-    temp = *a;
-    *a = *b;
-    *b = temp;
-}
-
-void merge(int *A, int startA, int endA, int *B, int startB, int endB, int *C, int start, int end)
-{
-    int i, j, k;
-
-    i = startA;
-    j = startB;
-    k = start - 1;
-    A[endA + 1] = B[endB] + 1;
-    B[endB + 1] = A[endA] + 1;
-
-    while (i <= endA || j <= endB)
-    {
-        k++;
-        if (A[i] <= B[j])
-        {
-            C[k] = A[i];
-            i++;
-        }
-        else
-        {
-            C[k] = B[j];
-            j++;
-        }
-    }
-}
-*/
