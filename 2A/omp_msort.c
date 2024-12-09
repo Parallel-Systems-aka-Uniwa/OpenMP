@@ -16,23 +16,27 @@
 #include <omp.h>
 
 
-#define T 1
-#define N 10000
-#define CZ 2
+#define T 4
+#define N 20
+#define LIMIT 4
 
-
-void create1DArray(int *Array, int size);
-void print1DArray(FILE *fp, int *Array, int size);
+void multisort(int *start, int *space, int size);
+void quicksort(int *start, int *end);
+int* pivotPartition(int *start, int *end);
+void swap(int *a, int *b);
+void merge(int *startA, int *endA, int *startB, int *endB, int *space);
 
 int main(int argc, char *argv[]) 
 {
-    int *A;
+    int *A, *Space;
     FILE *fpA_unsort, *fpA_sort;
-    int threads, size, chunk;
+    int threads, size;
+    int i;
+
+    srand(time(NULL));
 
     threads = T;
     size = N;
-    chunk = CZ;
 
     omp_set_num_threads(threads);
 
@@ -56,9 +60,8 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    printf("Threads     : %d\n", threads);
-    printf("Matrix size : %d\n", size);
-    printf("Chunk size  : %d\n", chunk);
+    printf("Threads          : %d\n", threads);
+    printf("Matrix size      : %d\n", size);
 
     A = (int *) malloc(size * sizeof(int));
     if (A == NULL)
@@ -66,35 +69,233 @@ int main(int argc, char *argv[])
         printf("Memory allocation failed for A\n");
         exit(1);
     }
+    
+    Space = (int *) malloc(size * sizeof(int));
+    if (Space == NULL)
+    {
+        printf("Memory allocation failed for Space\n");
+        exit(1);
+    }
 
-    create1DArray(A, size);
-    print1DArray(fpA_unsort, A, size);
+    for (i = 0; i < size; i++)
+    {
+        A[i] = rand() % 199 - 99;
+        A[i] = A[i] >= 0 ? A[i] + 10 : A[i] - 10; 
+    }
+    for (i = 0; i < size; i++)
+        fprintf(fpA_unsort, "%d ", A[i]);
+
+    #pragma omp parallel
+    {
+        #pragma omp single
+        multisort(A, Space, size);
+    }
+
+    for (i = 0; i < size; i++)
+        fprintf(fpA_sort, "%d ", A[i]);
 
     fclose(fpA_unsort);
     fclose(fpA_sort);
 
     free(A);
+    free(Space);
     
     return 0;
 }
 
-void create1DArray(int *Array, int size)
+void multisort(int *start, int *space, int size)
 {
-    int i;
+    int quarter;
+    int *startA, *startB, *startC, *startD;
+    int *spaceA, *spaceB, *spaceC, *spaceD;
 
-    srand(time(NULL));
-
-    for (i = 0; i < size; i++)
+    if (size < LIMIT)
     {
-        Array[i] = rand() % 199 - 99;
-        Array[i] = Array[i] >= 0 ? Array[i] + 10 : Array[i] - 10; 
+        quicksort(start, start + size - 1);
+        return;
+    }
+
+    quarter = size / 4;
+    startA = start; spaceA = space;
+    startB = startA + quarter; spaceB = spaceA + quarter;
+    startC = startB + quarter; spaceC = spaceB + quarter;
+    startD = startC + quarter; spaceD = spaceC + quarter;
+
+    #pragma omp task firstprivate(start, space, size)
+    multisort(startA, spaceA, quarter);
+
+    #pragma omp task firstprivate(start, space, size)
+    multisort(startB, spaceB, quarter);
+
+    #pragma omp task firstprivate(start, space, size)
+    multisort(startC, spaceC, quarter);
+
+    #pragma omp task firstprivate(start, space, size)
+    multisort(startD, spaceD, size - 3 * quarter);
+
+    #pragma omp taskwait
+
+    #pragma omp task firstprivate(start, space, size)
+    merge(startA, startA + quarter - 1, startB, startB + quarter - 1, spaceA);
+
+    #pragma omp task firstprivate(start, space, size)
+    merge(startC, startC + quarter - 1, startD, start + size - 1, spaceC);
+
+    #pragma omp taskwait
+
+    merge(spaceA, spaceC - 1, spaceC, spaceA + size - 1, startA);
+}
+
+void quicksort(int *start, int *end)
+{
+    int *pvt;
+
+    if (start < end)
+    {
+        pvt = pivotPartition(start, end);
+        quicksort(start, pvt - 1);
+        quicksort(pvt + 1, end);
     }
 }
 
-void print1DArray(FILE *fp, int *Array, int size)
+int* pivotPartition(int *start, int *end)
 {
-    int i;
+    int *pvt;
+    int *i, *j;
 
-    for (i = 0; i < size; i++)
-        fprintf(fp, "%d ", Array[i]);
+    pvt = end;  // Pivot is the last element
+    i = start - 1;  // Initialize i to one element before the start
+
+    for (j = start; j < end; j++)  // Iterate over the elements
+    {
+        if (*j <= *pvt)  // Compare values
+        {
+            i++;
+            swap(i, j);  // Swap values
+        }
+    }
+
+    swap(i + 1, pvt);  // Put pivot in its correct position
+
+    return i + 1;  // Return the partition index
 }
+
+
+void swap(int *a, int *b)
+{
+    int temp;
+
+    temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+void merge(int *startA, int *endA, int *startB, int *endB, int *space)
+{
+    int *i = startA, *j = startB, *k = space;
+
+    while (i <= endA && j <= endB)
+    {
+        if (*i <= *j)
+        {
+            *k = *i;
+            i++;
+        }
+        else
+        {
+            *k = *j;
+            j++;
+        }
+        k++;
+    }
+
+    while (i <= endA)
+    {
+        *k = *i;
+        i++;
+        k++;
+    }
+
+    while (j <= endB)
+    {
+        *k = *j;
+        j++;
+        k++;
+    }
+
+    // Copy the merged result back to the original array
+    for (i = space; i < k; i++)
+    {
+        *startA = *i;
+        startA++;
+    }
+}
+
+
+/*
+void quicksort(int *Array, int start, int end)
+{
+    int pvt;
+
+    if (start < end)
+    {
+        pvt = pivotPartition(Array, start, end, end);
+        quicksort(Array, start, pvt - 1);
+        quicksort(Array, pvt + 1, end);
+    }
+}
+
+int pivotPartition(int *A, int start, int end, int pvt)
+{
+    int i, j;
+
+    swap(&A[pvt], &A[end]);
+    i = start;
+    j = end;
+
+    while (i < j)
+        while(i < j && A[i] <= A[end])
+            i++;
+        while(i < j && A[j] >= A[end])
+            j--;
+        swap(&A[i], &A[j]);
+    swap(A[i], A[end]);
+
+    return i;
+}
+
+void swap(int *a, int *b)
+{
+    int temp;
+
+    temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+void merge(int *A, int startA, int endA, int *B, int startB, int endB, int *C, int start, int end)
+{
+    int i, j, k;
+
+    i = startA;
+    j = startB;
+    k = start - 1;
+    A[endA + 1] = B[endB] + 1;
+    B[endB + 1] = A[endA] + 1;
+
+    while (i <= endA || j <= endB)
+    {
+        k++;
+        if (A[i] <= B[j])
+        {
+            C[k] = A[i];
+            i++;
+        }
+        else
+        {
+            C[k] = B[j];
+            j++;
+        }
+    }
+}
+*/
