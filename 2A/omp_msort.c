@@ -31,6 +31,7 @@ int main(int argc, char *argv[])
     int *A, *Space;
     int threads, size;
     int i;
+    double start_time, end_time;
 
     srand(time(NULL));
 
@@ -39,10 +40,10 @@ int main(int argc, char *argv[])
 
     omp_set_num_threads(threads);
 
-    printf("Threads          : %d\n", threads);
-    printf("Matrix size      : %d\n", size);
-    printf("LIMIT            : %d\n", LIMIT);
-    printf("-----------------------\n");
+    printf("Threads             : %d\n", threads);
+    printf("Matrix size         : %d\n", size);
+    printf("Limit for quicksort : %d\n", LIMIT);
+    printf("-----------------------------------\n");
 
     A = (int *) malloc(size * sizeof(int));
     if (A == NULL)
@@ -64,11 +65,13 @@ int main(int argc, char *argv[])
         A[i] = A[i] >= 0 ? A[i] + 10 : A[i] - 10; 
     }
     
-    printf("Array BEFORE sort..\n");
-    printf("-----------------------\n");
+    printf("Before sorting\n");
+    printf("-----------------------------------\n");
     for (i = 0; i < size; i++)
         printf("%d ", A[i]);
     printf("\n");
+
+    start_time = omp_get_wtime();
 
     #pragma omp parallel
     {
@@ -76,12 +79,18 @@ int main(int argc, char *argv[])
         multisort(A, Space, size);
     }
 
-    printf("-----------------------\n");
-    printf("Array AFTER sort..\n");
-    printf("-----------------------\n");
+    end_time = omp_get_wtime();
+
+    printf("-----------------------------------\n");
+    printf("After sorting\n");
+    printf("-----------------------------------\n");
     for (i = 0; i < size; i++)
         printf("%d ", A[i]);
     printf("\n");
+
+    printf("-----------------------------------\n");
+    printf("Multisort finished in %lf sec.\n", end_time - start_time);
+    printf("-----------------------------------\n");
 
     free(A);
     free(Space);
