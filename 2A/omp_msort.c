@@ -15,9 +15,9 @@
 #include <time.h>
 #include <omp.h>
 
-#define T 10
-#define N 100
-#define LIMIT 50
+#define T 2
+#define N 1000
+#define LIMIT 100 
 
 void multisort(int *start, int *space, int size);
 void quicksort(int *start, int *end);
@@ -158,7 +158,7 @@ int main(int argc, char *argv[])
  * αναδρομικά και στη συνέχεια συγχωνεύει τα ταξινομημένα τμήματα. Όταν το μέγεθος του
  * τμήματος είναι μικρότερο από το όριο LIMIT, χρησιμοποιείται ο ακολουθιακός αλγόριθμος quicksort
  * για την τοπική ταξινόμηση.
- *j
+ *
  */
 void multisort(int *start, int *space, int size)
 {

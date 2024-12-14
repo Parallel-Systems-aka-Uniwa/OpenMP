@@ -1,0 +1,16 @@
+Threads             : 3
+Matrix size         : 10000
+Limit for quicksort : 100
+-----------------------------------
+Before sorting
+-----------------------------------
+The A has been stored in A_unsort/A_unsort_T3_N10000_L100.txt
+
+-----------------------------------
+After sorting
+-----------------------------------
+The A has been stored in A_sort/A_sort_T3_N10000_L100.txt
+
+-----------------------------------
+Multisort finished in 0.001380 sec.
+-----------------------------------
