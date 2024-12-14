@@ -15,7 +15,7 @@
 #include <time.h>
 #include <omp.h>
 
-#define T 2
+#define T 6
 #define N 1000
 #define LIMIT 100 
 
