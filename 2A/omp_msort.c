@@ -15,15 +15,17 @@
 #include <time.h>
 #include <omp.h>
 
-#define T 100
-#define N 10000000
-#define LIMIT 1000
+#define T 10
+#define N 100
+#define LIMIT 50
 
 void multisort(int *start, int *space, int size);
 void quicksort(int *start, int *end);
 int* pivotPartition(int *start, int *end);
 void swap(int *a, int *b);
 void merge(int *startA, int *endA, int *startB, int *endB, int *space);
+
+
 
 int main(int argc, char *argv[]) 
 {
@@ -97,6 +99,7 @@ int main(int argc, char *argv[])
     
     printf("Before sorting\n");
     printf("-----------------------------------\n");
+    printf("The A has been stored in %s\n", argv[1]);
     
     for (i = 0; i < size; i++)
         fprintf(fpA_unsort, "%d ", A[i]);
@@ -119,6 +122,7 @@ int main(int argc, char *argv[])
     printf("-----------------------------------\n");
     printf("After sorting\n");
     printf("-----------------------------------\n");
+    printf("The A has been stored in %s\n", argv[2]);
     
     for (i = 0; i < size; i++)
         fprintf(fpA_sort, "%d ", A[i]);
@@ -137,6 +141,8 @@ int main(int argc, char *argv[])
     return 0;
 }
 
+
+
 /*
  * === Συνάρτηση multisort ===
  * Παράμετροι: 
@@ -147,8 +153,8 @@ int main(int argc, char *argv[])
  * Επιστρέφει: 
  *      Τίποτα (void).
  *
- * Η συνάρτηση multisort υλοποιεί έναν παράλληλο αλγόριθμο ταξινόμησης με χρήση του OpenMP.
- * Ο αλγόριθμος χωρίζει τον πίνακα σε τέσσερα τμήματα (quarters), ταξινομεί κάθε τμήμα 
+ * Η συνάρτηση multisort υλοποιεί τον εναλλακτικό παράλληλο αλγόριθμο ταξινόμησης σε σχέση με τον mergesort.
+ * Ο αλγόριθμος χωρίζει τον πίνακα σε τέσσερα ισομεγέθη τμήματα (quarters), ταξινομεί κάθε τμήμα 
  * αναδρομικά και στη συνέχεια συγχωνεύει τα ταξινομημένα τμήματα. Όταν το μέγεθος του
  * τμήματος είναι μικρότερο από το όριο LIMIT, χρησιμοποιείται ο ακολουθιακός αλγόριθμος quicksort
  * για την τοπική ταξινόμηση.
@@ -156,22 +162,32 @@ int main(int argc, char *argv[])
  */
 void multisort(int *start, int *space, int size)
 {
-    int quarter;
-    int *startA, *startB, *startC, *startD;
-    int *spaceA, *spaceB, *spaceC, *spaceD;
+    int quarter;                                // Το μέγεθος του τμήματος που θα διαχωριστεί
+    int *startA, *startB, *startC, *startD;     // Δείκτες στην αρχή των τεσσάρων τμημάτων
+    int *spaceA, *spaceB, *spaceC, *spaceD;     // Δείκτες στον προσωρινό πίνακα για τα τέσσερα τμήματα
 
+/*
+ *  Κριτήριο Τερματισμού: Αν το μέγεθος του τμήματος είναι μικρότερο από το όριο LIMIT, χρησιμοποιείται 
+ *                        ο σειριακός αλγόριθμος quicksort που είναι πιο αποδοτικός για μικρά μεγέθη πινάκων.
+ */
     if (size < LIMIT)
     {
         quicksort(start, start + size - 1);
         return;
     }
 
+/*
+ *  Φάση Ι: Διαχωρισμός του πίνακα σε τέσσερα ισομεγέθη τμήματα 
+ */
     quarter = size / 4;
-    startA = start; spaceA = space;
+    startA = start; spaceA = space; 
     startB = startA + quarter; spaceB = spaceA + quarter;
     startC = startB + quarter; spaceC = spaceB + quarter;
     startD = startC + quarter; spaceD = spaceC + quarter;
 
+/*
+ *  Φάση ΙΙ: Αναδρομική κλήση της multisort για τα τέσσερα τμήματα με χρήση OpenMP tasks για εκτέλεση από διαφορετικά threads
+ */
     #pragma omp task firstprivate(start, space, size)
     multisort(startA, spaceA, quarter);
 
@@ -186,6 +202,9 @@ void multisort(int *start, int *space, int size)
 
     #pragma omp taskwait
 
+/*
+ *  Φάση ΙΙΙ: Παράλληλη συγχώνευση ανά δύο σε δύο τμήματα διπλάσιου μεγέθους
+ */
     #pragma omp task firstprivate(start, space, size)
     merge(startA, startA + quarter - 1, startB, startB + quarter - 1, spaceA);
 
@@ -194,8 +213,13 @@ void multisort(int *start, int *space, int size)
 
     #pragma omp taskwait
 
+/*
+ *  Φάση ΙV: Συγχώνευση των δύο εναπομείναντων τμημάτων μεταξύ τους
+ */
     merge(spaceA, spaceC - 1, spaceC, spaceA + size - 1, startA);
 }
+
+
 
 /*
  * === Συνάρτηση quicksort ===
@@ -206,7 +230,8 @@ void multisort(int *start, int *space, int size)
  *      Τίποτα (void).
  *
  * Η συνάρτηση quicksort υλοποιεί τον αναδρομικό αλγόριθμο γρήγορης ταξινόμησης (QuickSort).
- * 1. Επιλέγει ένα στοιχείο οδηγός (pivot) από το τμήμα του πίνακα που ταξινομείται.
+ * 1. Επιλέγει ένα στοιχείο οδηγός (pivot) από το τμήμα του πίνακα που ταξινομείται, δηλαδή, ένα στοιχείο
+ *    που βρίσκεται στην σωστή θέση ταξινόμησης.
  * 2. Τοποθετεί όλα τα στοιχεία μικρότερα ή ίσα με τον οδηγό στα αριστερά του
  *    και όλα τα μεγαλύτερα στα δεξιά του, διαχωρίζοντας τον πίνακα σε δύο υποπίνακες.
  * 3. Επαναλαμβάνει αναδρομικά τη διαδικασία για τον αριστερό και δεξιό υποπίνακα
@@ -219,11 +244,13 @@ void quicksort(int *start, int *end)
 
     if (start < end)
     {
-        pvt = pivotPartition(start, end);
-        quicksort(start, pvt - 1);
-        quicksort(pvt + 1, end);
+        pvt = pivotPartition(start, end); // Επιλογή στοιχείου οδηγού (pivot) και διαχωρισμός του πίνακα γύρω από αυτό
+        quicksort(start, pvt - 1);        // Αναδρομική κλήση της quicksort για τον αριστερό υποπίνακα
+        quicksort(pvt + 1, end);          // Αναδρομική κλήση της quicksort για τον δεξιό υποπίνακα
     }
 }
+
+
 
 /*
  * === Συνάρτηση pivotPartition ===
@@ -242,25 +269,30 @@ void quicksort(int *start, int *end)
  */
 int* pivotPartition(int *start, int *end)
 {
-    int *pvt;
-    int *i, *j;
+    int *pvt;        
+    int *i, *j;       
 
-    pvt = end;  
-    i = start - 1;  
+    pvt = end;        // Αρχικοποίηση του pivot στο τελευταίο στοιχείο του τμήματος
+    i = start - 1;    // Δείκτης στο τελευταίο στοιχείο μικρότερο ή ίσο με το pivot
 
+    // Επανάληψη για όλα τα στοιχεία από start μέχρι end-1
     for (j = start; j < end; j++)  
     {
+        // Αν το τρέχον στοιχείο *j είναι μικρότερο ή ίσο με το pivot
         if (*j <= *pvt)  
         {
-            i++;
-            swap(i, j); 
+            i++;          // Μετακινείται ο δείκτης i προς τα δεξιά
+            swap(i, j);   // Ανταλλαγή του *i (πρώτο μεγαλύτερο) με το *j (τρέχον στοιχείο)
         }
     }
 
+    // Τοποθέτηση του pivot στη σωστή του θέση (μετά το τελευταίο μικρότερο στοιχείο)
     swap(i + 1, pvt);  
 
+    // Επιστροφή του δείκτη στη νέα θέση του pivot
     return i + 1; 
 }
+
 
 /*
  * === Συνάρτηση swap ===
@@ -291,7 +323,7 @@ void swap(int *a, int *b)
  *    - int *endA: Δείκτης στο τελευταίο στοιχείο του πρώτου υποπίνακα (A).
  *    - int *startB: Δείκτης στο πρώτο στοιχείο του δεύτερου υποπίνακα (B).
  *    - int *endB: Δείκτης στο τελευταίο στοιχείο του δεύτερου υποπίνακα (B).
- *    - int *space: Δείκτης σε προσωρινό χώρο αποθήκευσης.
+ *    - int *space: Δείκτης σε προσωρινό πίνακα αποθήκευσης.
  * Επιστρέφει: 
  *      Τίποτα (void).
  *
@@ -302,40 +334,52 @@ void swap(int *a, int *b)
  */
 void merge(int *startA, int *endA, int *startB, int *endB, int *space)
 {
-    int *i = startA, *j = startB, *k = space;
+    int *i = startA, *j = startB, *k = space; // Αρχικοποίηση δεικτών για τα τμήματα A, B και τον προσωρινό πίνακα συγχώνευσης
 
-    while (i <= endA && j <= endB)
+/*
+ *  Συγχώνευση των δύο ταξινομημένων τμημάτων στον προσωρινό πίνακα
+ */
+    while (i <= endA && j <= endB) // Όσο υπάρχουν στοιχεία και στα δύο τμήματα
     {
-        if (*i <= *j)
+        if (*i <= *j) // Αν το τρέχον στοιχείο του A είναι μικρότερο ή ίσο με το τρέχον του B
         {
-            *k = *i;
-            i++;
+            *k = *i; // Αποθήκευση του στοιχείου από το A στον προσωρινό πίνακα
+            i++;     // Μετακίνηση στον επόμενο δείκτη του A
         }
         else
         {
-            *k = *j;
-            j++;
+            *k = *j; // Αποθήκευση του στοιχείου από το B στον προσωρινό πίνακα
+            j++;     // Μετακίνηση στον επόμενο δείκτη του B
         }
-        k++;
+        k++; // Μετακίνηση στον επόμενο δείκτη του προσωρινού πίνακα
     }
 
+/*
+ *  Αποθήκευση των υπολοίπων στοιχείων του A (αν υπάρχουν)
+ */ 
     while (i <= endA)
     {
-        *k = *i;
-        i++;
-        k++;
+        *k = *i; // Αποθήκευση του στοιχείου από το A στον προσωρινό πίνακα
+        i++;     // Μετακίνηση στον επόμενο δείκτη του A
+        k++;     // Μετακίνηση στον επόμενο δείκτη του προσωρινού πίνακα
     }
 
+/*
+ *  Αποθήκευση των υπολοίπων στοιχείων του B (αν υπάρχουν)
+ */ 
     while (j <= endB)
     {
-        *k = *j;
-        j++;
-        k++;
+        *k = *j; // Αποθήκευση του στοιχείου από το B στον προσωρινό πίνακα
+        j++;     // Μετακίνηση στον επόμενο δείκτη του B
+        k++;     // Μετακίνηση στον επόμενο δείκτη του προσωρινού πίνακα
     }
 
+/*
+ *  Αποθήκευση των στοιχείων από τον προσωρινό πίνακα πίσω στον αρχικό πίνακα
+ */ 
     for (i = space; i < k; i++)
     {
-        *startA = *i;
-        startA++;
+        *startA = *i; // Αποθήκευση του στοιχείου από τον προσωρινό πίνακα στον αρχικό πίνακα
+        startA++;     // Μετακίνηση στον επόμενο δείκτη του αρχικού πίνακα
     }
 }
