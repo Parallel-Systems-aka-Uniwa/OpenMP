@@ -9,7 +9,6 @@
  *  Εκτέλεση: ./omp_msort A_unsort.txt A_sort.txt
  * 
  */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>

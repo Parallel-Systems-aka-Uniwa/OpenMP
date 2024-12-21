@@ -1,0 +1,1 @@
+Usage: ./omp_msort A_unsort.txt A_sort.txt

@@ -4,12 +4,12 @@ Limit for quicksort : 500
 -----------------------------------
 Before sorting
 -----------------------------------
-The A has been stored in A_un/A_unsort_T1_N100000_L500.txt
+The A has been stored in A_unsort/A_unsort_T1_N100000_L500.txt
 
 -----------------------------------
 After sorting
 -----------------------------------
-The A has been stored in A_so/A_sort_T1_N100000_L500.txt
+The A has been stored in A_sort/A_sort_T1_N100000_L500.txt
 
 -----------------------------------
 Multisort finished in 0.015074 sec.
