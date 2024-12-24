@@ -15,7 +15,7 @@
 #include <omp.h>
 
 #define T 6
-#define N 1000
+#define N 10000000
 #define LIMIT 100 
 
 void multisort(int *start, int *space, int size);
