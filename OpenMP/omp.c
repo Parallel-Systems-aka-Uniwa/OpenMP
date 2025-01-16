@@ -16,7 +16,7 @@
 #include <omp.h>
 
 // σσ2. Τον αριθμό των threads τον δίνει ο χρήστης
-#define T 1
+#define T 2
 #define N 10
 #define CZ 2
 

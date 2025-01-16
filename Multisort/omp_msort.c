@@ -14,9 +14,9 @@
 #include <time.h>
 #include <omp.h>
 
-#define T 6
-#define N 10000000
-#define LIMIT 100 
+#define T 2
+#define N 10
+#define LIMIT 4
 
 void multisort(int *start, int *space, int size);
 void quicksort(int *start, int *end);
