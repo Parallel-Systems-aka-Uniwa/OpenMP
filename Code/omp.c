@@ -1,12 +1,12 @@
 /*
- *  === Αρχείο: omp.c ===
+ *  === File: omp.c ===
  *
- *  Ονοματεπώνυμο: Αθανασίου Βασίλειος Ευάγγελος
- *  Αριθμός Μητρώου: 19390005
- *  Πρόγραμμα Σπουδών: ΠΑΔΑ
+ *  Full Name: Athanasiou Vasileios Evangelos
+ *  Student ID: 19390005
+ *  Degree Program: PADA
  *  
- *  Μεταγλώττιση: gcc -o omp omp.c -fopenmp
- *  Εκτέλεση: ./omp A.txt B.txt
+ *  Compilation: gcc -o omp omp.c -fopenmp
+ *  Execution: ./omp A.txt B.txt
  * 
  */
 
@@ -15,36 +15,35 @@
 #include <time.h>
 #include <omp.h>
 
-// σσ2. Τον αριθμό των threads τον δίνει ο χρήστης
+// The number of threads is provided by the user
 #define T 2
 #define N 10
 #define CZ 2
-
 
 void create2DArray(int **Array, int size);
 void print2DArray(FILE *fp, int **Array, int size);
 
 int main(int argc, char *argv[]) 
 {
-    int **A;                                    // Ο πίνακας Α που θα εξετάσουμε αν είναι αυστηρά διαγώνια δεσπόζων
-    int **B;                                    // Bij = m – |Aij| για i<>j και Bij = m για i=j 
-    int *M;                                     // Ο πίνακας Μ που θα χρησιμοποιήσουμε για τον αλγόριθμο δυαδικού δένδρου
-    int threads, size, chunk;                   // Ο αριθμός των threads, το μέγεθος του πίνακα και αριθμός επαναλήψεων ανά thread
-    FILE *fpA, *fpB;                            // Αρχεία εξόδου για την αποθήκευση των πινάκων Α και Β
-    int i, j, k;                                // Δείκτες επανάληψης
-    int rowSum;                                 // Άθροισμα των στοιχείων μιας γραμμής του πίνακα Α
-    int flag, tid;                              // Είναι ή δεν είναι ο Α αυστηρά διαγώνια δεσπόζων, Αναγνωριστικό thread
-    int loc_sum, loc_flag, loc_index, loc_min;  // Τοπικές μεταβλητές για κάθε thread
-    int incr, temp0, temp1;                     // Μεταβλητές για τον αλγόριθμο δυαδικού δένδρου
-    int m;                                      // Μέγιστη τιμή της διαγωνίου του πίνακα Α
-    int min_val;                                // Ελάχιστη τιμή του πίνακα Β
-    double all_time_start, all_time_end;        // Χρόνος εκτέλεσης του παράλληλου προγράμματος
-    double loc_time_start, loc_time_end;        // Χρόνος εκτέλεσης της κάθε παράλληλης εργασίας
+    int **A;                                    // Matrix A to be tested for strict diagonal dominance
+    int **B;                                    // Matrix B: Bij = m – |Aij| for i<>j and Bij = m for i=j 
+    int *M;                                     // Array M to be used for the binary tree algorithm
+    int threads, size, chunk;                   // Number of threads, matrix size, and chunk size (iterations per thread)
+    FILE *fpA, *fpB;                            // Output files for storing matrices A and B
+    int i, j, k;                                // Loop indices
+    int rowSum;                                 // Sum of the elements of a row in matrix A
+    int flag, tid;                              // Flag to check if A is strictly diagonally dominant, thread ID
+    int loc_sum, loc_flag, loc_index, loc_min;  // Local variables for each thread
+    int incr, temp0, temp1;                     // Variables for the binary tree algorithm
+    int m;                                      // Maximum value on the diagonal of matrix A
+    int min_val;                                // Minimum value of matrix B
+    double all_time_start, all_time_end;        // Total execution time of the parallel program
+    double loc_time_start, loc_time_end;        // Execution time for each parallel task
 
-/*
- *  Ορισμός του αριθμού των threads και άνοιγμα των αρχείων εξόδου 
- */
-    // Επιβεβαιώνουμε ότι οι παράμετροι είναι ακέραιοι
+    /*
+     *  Set the number of threads and open the output files 
+     */
+    // Confirm that the parameters are integers
     threads = T;
     size = N;
     chunk = CZ;
@@ -75,9 +74,9 @@ int main(int argc, char *argv[])
     printf("Matrix size : %d x %d\n", size, size);
     printf("Chunk size  : %d\n", chunk);
 
-/*
- *  Δέσμευση μνήμης για τους πίνακες Α, Β και Μ
- */
+    /*
+     *  Memory allocation for matrices A, B and array M
+     */
     A = (int **) malloc(size * sizeof(int *));
     B = (int **) malloc(size * sizeof(int *));
     for (i = 0; i < size; i++) 
@@ -88,44 +87,45 @@ int main(int argc, char *argv[])
             printf("Memory allocation failed for A[%d]\n", i);
             exit(1);
         }
-        B[i] = (int *)malloc(size * sizeof(int));
+        B[i] = (int *) malloc(size * sizeof(int));
         if (B[i] == NULL) 
         {
             printf("Memory allocation failed for B[%d]\n", i);
             exit(1);
         }
     }
-    M = (int *)malloc(threads * sizeof(int));
+    M = (int *) malloc(threads * sizeof(int));
     if (M == NULL) 
     {
         printf("Memory allocation failed for M\n");
         exit(1);
     }
 
-/*
- *  Αρχικοποίησεις:
- * 
- *  του flag που ελέγχει αν ο Α είναι αυστηρά διαγώνια δεσπόζων,
- *  του πίνακα Α
- */
+    /*
+     *  Initializations:
+     * 
+     *  flag to check if A is strictly diagonally dominant,
+     *  and the matrix A itself.
+     */
     flag = 1;
 
     create2DArray(A, size);
     print2DArray(fpA, A, size);
 
-/*
- *  Αρχικοποιήσεις μέτρησης συνολικού χρόνου εκτέλεσης του παράλληλου προγράμματος για όλες τις υποεργασίες a, b, c, d1, d2.1, d2.2
- */
+    /*
+     *  Initialize total execution time measurement for all parallel sub-tasks:
+     *  a, b, c, d1, d2.1, d2.2
+     */
     all_time_start = 0.0;
     all_time_end = 0.0;
 
-// ========================================== [Έναρξη Παράλληλου Υπολογισμού] ========================================== 
+// ========================================== [Start of Parallel Computation] ========================================== 
 
-/*
- *  === Task: a === 
- *  Να ελέγχει (παράλληλα) αν ο πίνακας Α είναι αυστηρά διαγώνια δεσπόζων 
- */
-    // --------- Έναρξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία a ---------  
+    /*
+     *  === Task: a === 
+     *  Check (in parallel) if matrix A is strictly diagonally dominant 
+     */
+    // --------- Start timing for sub-task a ---------  
     loc_time_start = omp_get_wtime();
     all_time_start += loc_time_start;   
     
@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
     {
         loc_flag = 1;
 
-        // Παραλληλοποίηση του ελέγχου του πίνακα Α με for-schedule 
+        // Parallelize the check of matrix A with a for-loop schedule
         #pragma omp for schedule(static, chunk)
         for (i = 0; i < size; i++)
         {
@@ -146,25 +146,22 @@ int main(int argc, char *argv[])
                 else     
                     loc_index = abs(A[i][i]); 
 
-            // Αν δεν ισχύει η ιδιότητα του αυστηρά διαγώνια δεσπόζων πίνακα
-            // τότε η ιδιωτική μεταβλητή loc_flag παίρνει την τιμή 0
-            // ώστε να πολλαπλασιαστεί με την κοινή μεταβλητή flag 
-            // και να κρίνει ότι ο πίνακας Α δεν είναι αυστηρά διαγώνια δεσπόζων           
+            // If the strictly diagonally dominant property does not hold,
+            // set loc_flag to 0 so that the shared variable flag is updated accordingly
             if (loc_index <= loc_sum)
                 loc_flag = 0;
         }
 
-        // Κρίσιμη περιοχή για την ενημέρωση της κοινής μεταβλητής flag
+        // Critical section to update the shared variable flag
         #pragma omp atomic
         flag *= loc_flag;            
     }
     
     loc_time_end = omp_get_wtime();
     all_time_end += loc_time_end;
-    // --------- Λήξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία a ---------
+    // --------- End timing for sub-task a ---------
 
     printf("Is A strictly diagonal dominant?\n");
-    // σσ1. δεν ισχύει το a.
     if (!flag)
     {
         printf("NO\n");
@@ -175,7 +172,7 @@ int main(int argc, char *argv[])
         printf("--------------------------------------------\n");
         printf("=================================================================================\n");
         
-        // Εκτύπωση συνολικού χρόνου εκτέλεσης του παράλληλου προγράμματος
+        // Print total execution time of the parallel program
         printf("\n--------------------------------------------\n");
         printf("Parallel program finished in %lf sec.\n", all_time_end - all_time_start);
         printf("--------------------------------------------\n");
@@ -183,7 +180,7 @@ int main(int argc, char *argv[])
         exit(0);
     }
 
-    // Ο πίνακας Α είναι αυστηρά διαγώνια δεσπόζων
+    // Matrix A is strictly diagonally dominant
     printf("YES\n");
     printf("The array has been stored in file %s\n", argv[1]);
 
@@ -192,20 +189,20 @@ int main(int argc, char *argv[])
     printf("--------------------------------------------\n");
     printf("=================================================================================\n");
 
-/*
- *  === Task: b === 
- *  Να υπολογιστεί παράλληλα το m = max(|Aii|), i = 0...N-1 
- */
-    m = A[0][0]; // Αρχικοποίηση του m με το πρώτο στοιχείο της διαγωνίου του πίνακα Α
+    /*
+     *  === Task: b === 
+     *  Compute in parallel m = max(|Aii|) for i = 0...N-1 
+     */
+    m = A[0][0]; // Initialize m with the first diagonal element of A
 
-    // --------- Έναρξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία b --------- 
+    // --------- Start timing for sub-task b --------- 
     loc_time_start = omp_get_wtime();
     all_time_start += loc_time_start;
 
     printf("=================================== [Task b.] ===================================\n");
     #pragma omp parallel default(shared) private(i)
     {
-        // Υπολογισμός του m με reduction clause
+        // Compute m using reduction clause
         #pragma omp for schedule(static, chunk) reduction(max : m)
         for (i = 0; i < size; i++)
             if (A[i][i] > m)
@@ -214,7 +211,7 @@ int main(int argc, char *argv[])
 
     loc_time_end = omp_get_wtime();
     all_time_end += loc_time_end;
-    // --------- Λήξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία b ---------
+    // --------- End timing for sub-task b ---------
 
     printf("m = max(|Aii|) =>\n");
     printf("m = %d\n", m);
@@ -225,19 +222,20 @@ int main(int argc, char *argv[])
     printf("=================================================================================\n");
 
 
-/*
- *  === Task: c === 
- *  Να φτιαχτεί παράλληλα ένας νέος πίνακας B με στοιχεία Bij = m - |Aij| για i <> j και Bij = m για i = j  
- */
-    // --------- Έναρξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία c --------- 
+    /*
+     *  === Task: c === 
+     *  Create in parallel a new matrix B with elements:
+     *  Bij = m - |Aij| for i <> j, and Bij = m for i = j  
+     */
+    // --------- Start timing for sub-task c --------- 
     loc_time_start = omp_get_wtime();
     all_time_start += loc_time_start;
 
     printf("=================================== [Task c.] ===================================\n");
     #pragma omp parallel default(shared) private(i, j)
     {
-        // Με την οδηγία collapse(2) η nested for-loop συγχωνεύεται ως μία και εκτελείται ισοδύναμα 
-        // for (i = 0; i < N * N; i++) { ... } και ο διαμοιρασμός στα threads γίνεται με την for schedule
+        // The collapse(2) directive merges the nested for-loops into one, equivalent to
+        // for (i = 0; i < N * N; i++) { ... } and the scheduling is done using for schedule
         #pragma omp for schedule(static, chunk) collapse(2)
         for (i = 0; i < size; i++)
             for (j = 0; j < size; j++)
@@ -249,7 +247,7 @@ int main(int argc, char *argv[])
 
     loc_time_end = omp_get_wtime();
     all_time_end += loc_time_end;
-    // --------- Λήξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία c ---------
+    // --------- End timing for sub-task c ---------
 
     print2DArray(fpB, B, size);
     printf("Bij = m - |Aij| for i <> j and Bij = m for i = j\n");
@@ -260,23 +258,23 @@ int main(int argc, char *argv[])
     printf("--------------------------------------------\n");
     printf("==================================================================================\n");
 
-/*
- *  === Task: d === 
- *  Να υπολογιστεί παράλληλα το ελάχιστο στοιχείο του πίνακα Β min_val = min(|Bij|)
- *      
- *      === Task: d1 ===
- *      με χρήση reduction 
- */   
-    min_val = B[0][0]; // Αρχικοποίηση του min_val με το πρώτο στοιχείο του πίνακα Β
+    /*
+     *  === Task: d === 
+     *  Compute in parallel the minimum element of matrix B: min_val = min(|Bij|)
+     *      
+     *      === Task: d1 ===
+     *      using reduction 
+     */   
+    min_val = B[0][0]; // Initialize min_val with the first element of B
 
-    // --------- Έναρξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία d1 --------- 
+    // --------- Start timing for sub-task d1 --------- 
     loc_time_start = omp_get_wtime();
     all_time_start += loc_time_start;
 
     printf("=================================== [Task d1.] ===================================\n");
     #pragma omp parallel default(shared) private(i, j)
     {
-        // Υπολογισμός του min_val με reduction clause
+        // Compute min_val using reduction clause
         #pragma omp for schedule(static, chunk) reduction(min : min_val)
         for (i = 0; i < size; i++)
             for (j = 0; j < size; j++)
@@ -286,7 +284,7 @@ int main(int argc, char *argv[])
 
     loc_time_end = omp_get_wtime();
     all_time_end += loc_time_end;
-    // --------- Λήξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία d1 ---------
+    // --------- End timing for sub-task d1 ---------
 
     printf("With reduction\n");
     printf("m = min(|Bij|) =>\n");
@@ -297,32 +295,31 @@ int main(int argc, char *argv[])
     printf("--------------------------------------------\n");
     printf("===================================================================================\n");
 
-/*
- *  === Task: d === 
- *  Να υπολογιστεί παράλληλα το ελάχιστο στοιχείο του πίνακα Β min_val = min(|Bij|)
- *      
- *      === Task: d2 ===
- *      χωρίς τη χρήση reduction
- * 
- *          === Task: d2.1 ===
- *          με μηχανισμούς προστασίας κρίσιμης περιοχής  
- */  
-    min_val = B[0][0]; // Αρχικοποίηση του min_val με το πρώτο στοιχείο του πίνακα Β
+    /*
+     *  === Task: d === 
+     *  Compute in parallel the minimum element of matrix B: min_val = min(|Bij|)
+     *      
+     *      === Task: d2 ===
+     *      without using reduction
+     * 
+     *          === Task: d2.1 ===
+     *          with critical section protection  
+     */  
+    min_val = B[0][0]; // Reinitialize min_val with the first element of B
 
-    // --------- Έναρξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία d2.1 --------- 
+    // --------- Start timing for sub-task d2.1 --------- 
     loc_time_start = omp_get_wtime();
     all_time_start += loc_time_start;
 
     printf("=================================== [Task d2.1] ===================================\n");
     #pragma omp parallel shared(min_val) private(i, j)
     {
-
         #pragma omp for schedule(static, chunk)
         for (i = 0; i < size; i++)
             for (j = 0; j < size; j++)
                 if (B[i][j] < min_val)
                 {
-                    // Κρίσιμη περιοχή για την ενημέρωση της κοινής μεταβλητής min_val
+                    // Critical section to update the shared variable min_val
                     #pragma omp critical (inc_min_val)
                     {
                         min_val = B[i][j];
@@ -332,7 +329,7 @@ int main(int argc, char *argv[])
 
     loc_time_end = omp_get_wtime();
     all_time_end += loc_time_end;
-    // --------- Λήξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία d2.1 ---------
+    // --------- End timing for sub-task d2.1 ---------
 
     printf("With critical section\n");
     printf("m = min(|Bij|) =>\n");
@@ -343,19 +340,19 @@ int main(int argc, char *argv[])
     printf("--------------------------------------------\n");
     printf("===================================================================================\n");
 
-/*
- *  === Task: d === 
- *  Να υπολογιστεί παράλληλα το ελάχιστο στοιχείο του πίνακα Β min_val = min(|Bij|)
- *      
- *      === Task: d2 ===
- *      χωρίς τη χρήση reduction
- * 
- *          === Task: d2.2 ===
- *          με αλγόριθμο δυαδικού δένδρου	  
- */ 
-    min_val = B[0][0]; // Αρχικοποίηση του min_val με το πρώτο στοιχείο του πίνακα Β
+    /*
+     *  === Task: d === 
+     *  Compute in parallel the minimum element of matrix B: min_val = min(|Bij|)
+     *      
+     *      === Task: d2 ===
+     *      without using reduction
+     * 
+     *          === Task: d2.2 ===
+     *          using the binary tree algorithm	  
+     */ 
+    min_val = B[0][0]; // Reinitialize min_val with the first element of B
 
-    // --------- Έναρξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία d2.2 ---------
+    // --------- Start timing for sub-task d2.2 ---------
     loc_time_start = omp_get_wtime();
     all_time_start += loc_time_start;
 
@@ -365,33 +362,29 @@ int main(int argc, char *argv[])
         tid = omp_get_thread_num();
         loc_min = 1000000;
 
-        // Κάθε thread υπολογίζει το τοπικό ελάχιστο στοιχείο του πίνακα Β και τον αποθηκεύει στην θέση του πίνακα M[tid]
-        // όπου tid είναι το αναγνωριστικό του thread 
+        // Each thread computes the local minimum of matrix B and stores it in M[tid]
+        // where tid is the thread ID 
         #pragma omp for schedule(static, chunk)
         for (i = 0; i < size; i++)
             for (j = 0; j < size; j++)
                 if (B[i][j] < loc_min)
                     loc_min = B[i][j];
 
-        // Αρχικοποίηση των θέσεων του πίνακα Μ που είναι εκτός ορίων του πίνακα Μ
-        // ώστε οι συγκρίσεις που θα γίνονται σε κάθε Φάση του αλγορίθμου δυαδικού δένδρου
-        // να αυξάνονται κατά 2 θέσεις M[i+1], M[i+2], M[i+4], ... , κ.ο.κ.
+        // Store the local minimum in the corresponding position of array M
         M[tid] = loc_min;
 
-        // Συγχρονισμός των threads για κάθε φάση του αλγορίθμου δυαδικού δένδρου
+        // Synchronize threads for each phase of the binary tree algorithm
         #pragma omp barrier
 
-        // Αρχικοποίηση του δείκτη επανάληψης του αλγορίθμου δυαδικού δένδρου
+        // Initialize the loop index for the binary tree algorithm
         incr = 1;
         
-        // Έναρξη Φάσεων του αλγορίθμου δυαδικού δένδρου
+        // Begin phases of the binary tree algorithm
         while (incr < threads)
         {
-            // Από τη στιγμή που δεν μπορούμε να χρησιμοποιήσουμε μηχανισμούς προστασίας κρίσιμης περιοχής,
-            // θα πρέπει να επιβεβαιώσουμε ότι το σωστό thread κάνει την σύγκριση για τα στοιχεία που του ανήκουν.
-            // Αυτό επιτυγχάνεται με την χρήση των συνθηκών tid % (2 * incr) == 0 και tid + incr < T
-            // Συνθήκη 1: tid % (2 * incr) == 0, όσο περνάνε οι φάσεις του αλγορίθμου, τα threads που εργάζονται μειώνονται
-            // Συνθήκη 2: tid + incr < T, για να μην ξεφύγουμε από τα όρια του πίνακα Μ
+            // Since we cannot use critical section mechanisms here,
+            // we ensure that the correct thread performs the comparison for its assigned elements.
+            // This is achieved using the conditions: tid % (2 * incr) == 0 and tid + incr < T
             if (tid % (2 * incr) == 0 && tid + incr < threads) 
             {
                 temp0 = M[tid];
@@ -400,21 +393,20 @@ int main(int argc, char *argv[])
                 M[tid] = loc_min;
             }
 
-            // Συγχρονισμός των threads για την επόμενη φάση του αλγορίθμου δυαδικού δένδρου
+            // Synchronize threads for the next phase of the binary tree algorithm
             #pragma omp barrier 
 
-            // Αύξηση του δείκτη επανάληψης του αλγορίθμου δυαδικού δένδρου
+            // Increase the loop index for the binary tree algorithm
             incr = 2 * incr;
         }
     }
 
-    
     loc_time_end = omp_get_wtime();
     all_time_end += loc_time_end;
-    // --------- Λήξη χρόνου μέτρησης του παράλληλου προγράμματος για την υποεργασία d2.2 ---------
+    // --------- End timing for sub-task d2.2 ---------
     
-    // Εύρεση του ελάχιστου στοιχείου του πίνακα Β με την χρήση του αλγορίθμου δυαδικού δένδρου
-    // Το ελάχιστο στοιχείο αποθηκεύεται στην θέση M[0] του πίνακα Μ
+    // The minimum element of matrix B is found using the binary tree algorithm.
+    // It is stored in M[0] of array M.
     printf("Binary Tree Algorithm\n");
     printf("m = min(|Bij|) =>\n");
     printf("m = %d\n", M[0]);
@@ -424,16 +416,16 @@ int main(int argc, char *argv[])
     printf("--------------------------------------------\n");
     printf("===================================================================================\n");
     
-// ========================================== [Λήξη Παράλληλου Υπολογισμού] ==========================================
+// ========================================== [End of Parallel Computation] ==========================================
     
-    // Εκτύπωση συνολικού χρόνου εκτέλεσης του παράλληλου προγράμματος
+    // Print total execution time of the parallel program
     printf("\n--------------------------------------------\n");
     printf("Parallel program finished in %lf sec.\n", all_time_end - all_time_start);
     printf("--------------------------------------------\n");
 
-/*
- *  Κλείσιμο αρχείων και αποδέσμευση μνήμης
- */
+    /*
+     *  Close files and free memory
+     */
     fclose(fpA);
     fclose(fpB);
 
@@ -450,13 +442,13 @@ int main(int argc, char *argv[])
 }
 
 /*
- *  === Συνάρτηση create2DArray ===
- *  Παράμετροι: Δείκτης σε πίνακα διάστασης N που περιέχει ακέραιες τιμές, μέγεθος πίνακα  
- *  Επιστρέφει: Τίποτα
+ *  === Function: create2DArray ===
+ *  Parameters: Pointer to an array of dimension N containing integers, matrix size  
+ *  Returns: Nothing
  * 
- *  Συνάρτηση που δημιουργεί έναν τυχαίο πίνακα Ν x Ν όπου ανάλογα με το αποτέλεσμα της rand() % 2
- *  ο πίνακας είναι αυστηρά διαγώνια δεσπόζων ή μη αυστηρά διαγώνια δεσπόζων. 
- *  Ο πίνακας επιστρέφεται στο σημείο κλήσης μέσω αναφοράς (by reference).
+ *  Function that creates a random N x N matrix where, depending on the result of rand() % 2,
+ *  the matrix is either strictly diagonally dominant or not.
+ *  The matrix is returned by reference.
  */
 void create2DArray(int **Array, int size)
 {
@@ -465,10 +457,11 @@ void create2DArray(int **Array, int size)
 
     srand(time(NULL));
     
-    // Τυχαία επιλογή αν ο πίνακας θα είναι αυστηρά διαγώνια δεσπόζων ή μη αυστηρά διαγώνια δεσπόζων. Τιμές στο διάστημα [0, 1]
+    // Randomly decide if the matrix will be strictly diagonally dominant or not.
+    // Values in the interval [0, 1]
     if (rand() % 2) 
     {
-        // Αυστηρά διαγώνια δεσπόζων
+        // Strictly diagonally dominant
         for (i = 0; i < size; i++) 
         {
             rowSum = 0;
@@ -476,27 +469,27 @@ void create2DArray(int **Array, int size)
             {
                 if (i == j) 
                 {
-                    Array[i][i] = rand() % 21 - 10; // Στοιχεία κύριας διαγωνίου. Τιμές στο διάστημα [-10, 10]
-                    Array[i][i] = Array[i][i] >= 0 ? Array[i][i] + 20 : Array[i][i] - 20; // Τυχαία επιλογή προσήμου
+                    Array[i][i] = rand() % 21 - 10; // Diagonal elements. Values in the range [-10, 10]
+                    Array[i][i] = Array[i][i] >= 0 ? Array[i][i] + 20 : Array[i][i] - 20; // Randomly adjust sign
                 } 
                 else 
                 {
-                    Array[i][j] = rand() % 21 - 10; // Στοιχεία που δεν ανήκουν στην κύρια διαγώνιο. Τιμές στο διάστημα [-10, 10]
+                    Array[i][j] = rand() % 21 - 10; // Off-diagonal elements. Values in the range [-10, 10]
                     rowSum += abs(Array[i][j]);
                 }
             }
-            // Επιβεβαιώνουμε την ιδιότητα του αυστηρά διαγώνια δεσπόζων πίνακα
-            // |Αii| > Σ|Aij|, j=0...N-1, j<>i
+            // Ensure the strictly diagonally dominant property:
+            // |Aii| > Σ|Aij|, j=0...N-1, j<>i
             if (rowSum >= abs(Array[i][i])) 
             {
-                Array[i][i] = rowSum + rand() % 5 + 1; // Προσαρμόζουμε τα στοιχεία της κύριας διαγωνίου ώστε να ισχύει η ιδιότητα
-                Array[i][i] *= (rand() % 2 == 0) ? 1 : -1; // Τυχαία επιλέγουμε πρόσημο στοιχείου της κύριας διαγωνίου
+                Array[i][i] = rowSum + rand() % 5 + 1; // Adjust the diagonal element so the property holds
+                Array[i][i] *= (rand() % 2 == 0) ? 1 : -1; // Randomly choose the sign
             }
         }
     } 
     else
     {
-        // Μη αυστηρά διαγώνια δεσπόζων
+        // Not strictly diagonally dominant
         for (i = 0; i < size; i++) 
         {
             rowSum = 0;
@@ -504,32 +497,31 @@ void create2DArray(int **Array, int size)
             {
                 if (i == j) 
                 {
-                    Array[i][i] = rand() % 11 - 5; // Στοιχεία κύριας διαγωνίου. Τιμές στο διάστημα [-5, 5]
+                    Array[i][i] = rand() % 11 - 5; // Diagonal elements. Values in the range [-5, 5]
                 } 
                 else 
                 {
-                    Array[i][j] = rand() % 21 - 10; // Στοιχεία που δεν ανήκουν στην κύρια διαγώνιο. Τιμές στο διάστημα [-5, 5]
+                    Array[i][j] = rand() % 21 - 10; // Off-diagonal elements. Values in the range [-10, 10]
                     rowSum += abs(Array[i][j]);
                 }
             }
-            // Επιβεβαιώνουμε την ΜΗ διατήρηση της ιδιότητας του αυστηρά διαγώνια δεσπόζων πίνακα
-            // |Αii| <= Σ|Aij|, j=0...N-1, j<>i
+            // Ensure the matrix is NOT strictly diagonally dominant:
+            // |Aii| <= Σ|Aij|, j=0...N-1, j<>i
             if (abs(Array[i][i]) > rowSum) 
             {
-                Array[i][i] = rowSum - rand() % 5 - 1; // Προσαρμόζουμε τα στοιχεία της κύριας διαγωνίου ώστε να ΜΗΝ ισχύει η ιδιότητα
-                Array[i][i] *= (rand() % 2 == 0) ? 1 : -1; // Τυχαία επιλέγουμε πρόσημο στοιχείου της κύριας διαγωνίου
+                Array[i][i] = rowSum - rand() % 5 - 1; // Adjust the diagonal element so the property does NOT hold
+                Array[i][i] *= (rand() % 2 == 0) ? 1 : -1; // Randomly choose the sign
             }
         }
     }
 }
 
-
 /*
- *  === Συνάρτηση print2DArray ===
- *  Παράμετροι: Δείκτης σε αρχείο εξόδου, Πίνακας διάστασης N x N που περιέχει ακέραιες τιμές, μέγεθος πίνακα
- *  Επιστρέφει: Τίποτα
+ *  === Function: print2DArray ===
+ *  Parameters: Pointer to an output file, N x N matrix of integers, matrix size
+ *  Returns: Nothing
  * 
- *  Συνάρτηση που εκτυπώνει έναν πίνακα διάστασης N x N σε ένα αρχείο εξόδου
+ *  Function that prints an N x N matrix to an output file.
  */
 void print2DArray(FILE *fp, int **Array, int size)
 {
@@ -542,4 +534,3 @@ void print2DArray(FILE *fp, int **Array, int size)
         fprintf(fp, "\n");
     }
 }
-
